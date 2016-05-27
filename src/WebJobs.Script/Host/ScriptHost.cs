@@ -125,9 +125,9 @@ namespace Microsoft.Azure.WebJobs.Script
             ScriptConfig.HostConfig.Tracing.Tracers.Add(traceMonitor);
 
             TraceWriter = ScriptConfig.TraceWriter;
+            TraceLevel hostTraceLevel = ScriptConfig.HostConfig.Tracing.ConsoleLevel;
             if (ScriptConfig.FileLoggingEnabled)
             {
-                TraceLevel hostTraceLevel = ScriptConfig.HostConfig.Tracing.ConsoleLevel;
                 string hostLogFilePath = Path.Combine(ScriptConfig.RootLogPath, "Host");
                 TraceWriter fileTraceWriter = new FileTraceWriter(hostLogFilePath, hostTraceLevel);
                 if (TraceWriter != null)
@@ -147,7 +147,8 @@ namespace Microsoft.Azure.WebJobs.Script
             }
             else
             {
-                TraceWriter = NullTraceWriter.Instance;
+                // if no TraceWriter has been configured, default it to Console
+                TraceWriter = new ConsoleTraceWriter(hostTraceLevel);
             }
 
             TraceWriter.Info(string.Format(CultureInfo.InvariantCulture, "Reading host configuration file '{0}'", hostConfigFilePath));
@@ -235,35 +236,48 @@ namespace Microsoft.Azure.WebJobs.Script
         /// </summary>
         private void PurgeOldLogDirectories()
         {
-            if (!Directory.Exists(this.ScriptConfig.RootScriptPath))
+            try
             {
-                return;
-            }
-
-            // Create a lookup of all potential functions (whether they're valid or not)
-            // It is important that we determine functions based on the presence of a folder,
-            // not whether we've identified a valid function from that folder. This ensures
-            // that we don't delete logs/secrets for functions that transition into/out of
-            // invalid unparsable states.
-            var functionLookup = Directory.EnumerateDirectories(this.ScriptConfig.RootScriptPath).ToLookup(p => Path.GetFileName(p), StringComparer.OrdinalIgnoreCase);
-
-            string rootLogFilePath = Path.Combine(this.ScriptConfig.RootLogPath, "Function");
-            var logFileDirectory = new DirectoryInfo(rootLogFilePath);
-            foreach (var logDir in logFileDirectory.GetDirectories())
-            {
-                if (!functionLookup.Contains(logDir.Name))
+                if (!Directory.Exists(this.ScriptConfig.RootScriptPath))
                 {
-                    // the directory no longer maps to a running function
-                    // so delete it
-                    try
+                    return;
+                }
+
+                // Create a lookup of all potential functions (whether they're valid or not)
+                // It is important that we determine functions based on the presence of a folder,
+                // not whether we've identified a valid function from that folder. This ensures
+                // that we don't delete logs/secrets for functions that transition into/out of
+                // invalid unparsable states.
+                var functionLookup = Directory.EnumerateDirectories(this.ScriptConfig.RootScriptPath).ToLookup(p => Path.GetFileName(p), StringComparer.OrdinalIgnoreCase);
+
+                string rootLogFilePath = Path.Combine(this.ScriptConfig.RootLogPath, "Function");
+                if (!Directory.Exists(rootLogFilePath))
+                {
+                    return;
+                }
+
+                var logFileDirectory = new DirectoryInfo(rootLogFilePath);
+                foreach (var logDir in logFileDirectory.GetDirectories())
+                {
+                    if (!functionLookup.Contains(logDir.Name))
                     {
-                        logDir.Delete(recursive: true);
-                    }
-                    catch
-                    {
-                        // Purge is best effort
+                        // the directory no longer maps to a running function
+                        // so delete it
+                        try
+                        {
+                            logDir.Delete(recursive: true);
+                        }
+                        catch
+                        {
+                            // Purge is best effort
+                        }
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+                // Purge is best effort
+                TraceWriter.Error("An error occurred while purging log files", ex);
             }
         }
 
