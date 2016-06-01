@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
-VisualStudioVersion = 14.0.24720.0
+VisualStudioVersion = 14.0.25123.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebJobs.Script", "src\WebJobs.Script\WebJobs.Script.csproj", "{1DC670CD-F42F-4D8F-97BD-0E1AA8221094}"
 EndProject
@@ -250,6 +250,29 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "HttpTrigger-Powershell", "H
 		sample\HttpTrigger-Powershell\run.ps1 = sample\HttpTrigger-Powershell\run.ps1
 	EndProjectSection
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "sample2", "sample2", "{C1695CB2-C4CF-4E8A-A656-37C766B60623}"
+	ProjectSection(SolutionItems) = preProject
+		sample2\host.json = sample2\host.json
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "counterapi-get", "counterapi-get", "{1541F8A5-17EF-4435-BA36-16C152D02499}"
+	ProjectSection(SolutionItems) = preProject
+		sample2\counterapi-get\function.json = sample2\counterapi-get\function.json
+		sample2\counterapi-get\run.csx = sample2\counterapi-get\run.csx
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "counterapi-increment", "counterapi-increment", "{7CB3B102-3901-4521-8213-C95D78DB82EB}"
+	ProjectSection(SolutionItems) = preProject
+		sample2\counterapi-increment\function.json = sample2\counterapi-increment\function.json
+		sample2\counterapi-increment\run.csx = sample2\counterapi-increment\run.csx
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "counterapi-autoinitialize", "counterapi-autoinitialize", "{535780F8-8B16-4916-BBE8-1F30621D93AC}"
+	ProjectSection(SolutionItems) = preProject
+		sample2\counterapi-autoinitialize\function.json = sample2\counterapi-autoinitialize\function.json
+		sample2\counterapi-autoinitialize\run.csx = sample2\counterapi-autoinitialize\run.csx
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -323,5 +346,8 @@ Global
 		{C963B824-334A-4905-9AC7-2F373E5BC9CA} = {FF9C0818-30D3-437A-A62D-7A61CA44F459}
 		{94B16BEB-70BD-4357-A21A-D1E70C8CDDF0} = {FF9C0818-30D3-437A-A62D-7A61CA44F459}
 		{BCB7AB10-FDDB-4920-ADB0-E1FE2584CEBF} = {FF9C0818-30D3-437A-A62D-7A61CA44F459}
+		{1541F8A5-17EF-4435-BA36-16C152D02499} = {C1695CB2-C4CF-4E8A-A656-37C766B60623}
+		{7CB3B102-3901-4521-8213-C95D78DB82EB} = {C1695CB2-C4CF-4E8A-A656-37C766B60623}
+		{535780F8-8B16-4916-BBE8-1F30621D93AC} = {C1695CB2-C4CF-4E8A-A656-37C766B60623}
 	EndGlobalSection
 EndGlobal
