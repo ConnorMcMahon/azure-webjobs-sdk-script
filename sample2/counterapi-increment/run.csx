@@ -4,8 +4,16 @@ using Microsoft.WindowsAzure.Storage.Table;
 
 public static async Task<HttpResponseMessage> Run(HttpRequestMessage req, TraceWriter log, Counter counter)
 {
+    var queryParams = req.GetQueryNameValuePairs()
+        .ToDictionary(p => p.Key, p => p.Value, StringComparer.OrdinalIgnoreCase);
 
-    counter.Value += 1;
+    string incrementBy = null;
+    if(!queryParams.TryGetValue("incrementBy", out incrementBy))
+    {
+        incrementBy = "1";
+        
+    }
+    counter.Value += Int32.Parse(incrementBy);
 
     HttpResponseMessage res = null;
     if (counter.Value <= 0)
@@ -19,7 +27,7 @@ public static async Task<HttpResponseMessage> Run(HttpRequestMessage req, TraceW
     {
         res = new HttpResponseMessage(HttpStatusCode.OK)
         {
-            Content = new StringContent("Updated the value of the counter.")
+            Content = new StringContent("Updated the value of the counter by " + incrementBy + ".")
         };
     }
 

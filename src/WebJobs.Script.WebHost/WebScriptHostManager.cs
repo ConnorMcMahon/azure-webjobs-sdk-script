@@ -163,17 +163,19 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
             config.DashboardConnectionString = null; // disable slow logging 
         }
 
-        private static string QueryStringToRegexString(string queryString)
+        private static string QueryStringToRegexString(string queryTemplate)
         {   
-            if (queryString == null)
+            if (queryTemplate == null)
             {
                 return null;
             }
+            //ensure that the format doesn't start with a '/'. maybe should enforce as a rule for route templates.
+            queryTemplate = queryTemplate.Trim('/');
 
             StringBuilder queryBuilder = new StringBuilder();
             {
-                Dictionary<string, string> paramTypes = Utility.ExtractPathParameters(queryString);
-                var parsedTemplate = TemplateParser.Parse(queryString);
+                Dictionary<string, string> paramTypes = Utility.ExtractPathParameters(queryTemplate);
+                var parsedTemplate = TemplateParser.Parse(queryTemplate);
                 var parameters = parsedTemplate?.Parameters?.ToList() ?? new List<TemplatePart>();
                 foreach (TemplatePart part in parameters)
                 {
@@ -207,7 +209,14 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
                     queryBuilder.Append(sectionString);
                 }
             }
-            return queryBuilder.ToString().Trim('/');
+            //strip off the query parameters, as they are not technically part of the route we will recieve.
+            string fullTemplate = queryBuilder.ToString().Trim('/');
+            int queryParamsIndex = fullTemplate.IndexOf("?", StringComparison.OrdinalIgnoreCase);
+            if (queryParamsIndex > 0)
+            {
+                return fullTemplate.Substring(0, queryParamsIndex);
+            }
+            return fullTemplate;
         }
 
         protected override void OnHostStarted()
