@@ -4,6 +4,8 @@
       "authLevel": "function",
       "name": "req",
       "type": "httpTrigger",
+      "methods": [ "get" ],
+      "route": "{incrementBy:int}/apicounter-increment",
       "direction": "in"
     },
     {

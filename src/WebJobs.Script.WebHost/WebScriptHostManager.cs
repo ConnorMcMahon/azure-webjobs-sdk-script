@@ -7,8 +7,11 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Reflection;
+using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNet.Routing.Template;
 using Microsoft.AspNet.WebHooks;
 using Microsoft.Azure.WebJobs.Host;
 using Microsoft.Azure.WebJobs.Host.Loggers;
@@ -127,9 +130,19 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
                 idx = route.IndexOf('/', idx);
                 route = route.Substring(idx + 1).Trim('/');
 
+                //attempt to find if any of the keys exactly match this route
                 HttpFunctions.TryGetValue(route.ToLowerInvariant(), out function);
-            }
 
+                //if still haven't found a function look at all of the regex patterns representing 
+                //routes in HttpFunctions.
+                if (function == null)
+                {
+                    function = (from func in HttpFunctions
+                                where Regex.Matches(route, func.Key).Count > 0
+                                select func.Value)
+                                .FirstOrDefault();
+                }   
+            }
             return function;
         }
 
@@ -150,6 +163,53 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
             config.DashboardConnectionString = null; // disable slow logging 
         }
 
+        private static string QueryStringToRegexString(string queryString)
+        {   
+            if (queryString == null)
+            {
+                return null;
+            }
+
+            StringBuilder queryBuilder = new StringBuilder();
+            {
+                Dictionary<string, string> paramTypes = Utility.ExtractPathParameters(queryString);
+                var parsedTemplate = TemplateParser.Parse(queryString);
+                var parameters = parsedTemplate?.Parameters?.ToList() ?? new List<TemplatePart>();
+                foreach (TemplatePart part in parameters)
+                {
+                    string sectionString;
+                    if (part.IsParameter)
+                    {
+                        //find the type for this parameter, defaulting to string
+                        string parameterType = "string";
+                        paramTypes.TryGetValue(part.Name, out parameterType);
+                        //generate a regular expression for this section that matches the appropriate type  
+                        switch (parameterType)
+                        {
+                            case "string":
+                                sectionString = @"/\w+/";
+                                break;
+                            case "int":
+                                sectionString = @"/\d+/";
+                                break;
+                            case "bool":
+                                sectionString = @"/{true|false}/";
+                                break;
+                            default:
+                                sectionString = @"/\w+/";
+                                break;
+                        }
+                    }
+                    else
+                    {
+                        sectionString = "/" + part.Name + "/";
+                    }
+                    queryBuilder.Append(sectionString);
+                }
+            }
+            return queryBuilder.ToString().Trim('/');
+        }
+
         protected override void OnHostStarted()
         {
             base.OnHostStarted();
@@ -163,6 +223,8 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
                 if (httpTriggerBinding != null)
                 {
                     string route = httpTriggerBinding.Route;
+                    route = QueryStringToRegexString(route);
+
                     if (!string.IsNullOrEmpty(route))
                     {
                         route += "/";
