@@ -9,6 +9,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -54,6 +55,7 @@ namespace Microsoft.Azure.WebJobs.Script.Description
             _compilationService = compilationServiceFactory.CreateService(functionMetadata.ScriptType, _metadataResolver);
             _inputBindings = inputBindings;
             _outputBindings = outputBindings;
+
             _triggerInputName = GetTriggerInputName(functionMetadata);
             _metrics = host.ScriptConfig.HostConfig.GetService<IMetricsLogger>();
                         
@@ -178,6 +180,31 @@ namespace Microsoft.Azure.WebJobs.Script.Description
                 });
         }
 
+        private Object[] GetFinalParameters(object[] parameters)
+        {
+            var request = parameters[0] as HttpRequestMessage;
+            if (request == null)
+            {
+                return parameters;
+            }
+            else
+            {
+                IDictionary<string, object> otherParameters = Utility.ExtractQueryArguments(Metadata, request);
+                object[] newParameters = new object[parameters.Length + otherParameters.Count];
+                for (int i = 0; i < parameters.Length; i++)
+                {
+                    newParameters[i] = parameters[i];
+                }
+
+                var signatureParameters = _functionSignature.Parameters;
+                for (int i = parameters.Length; i < signatureParameters.Length; i++)
+                {
+                    newParameters[i] = otherParameters[signatureParameters[i].Name];
+                }
+                return newParameters;
+            }
+        }
+
         public override async Task Invoke(object[] parameters)
         {
             FunctionStartedEvent startedEvent = null;
@@ -200,6 +227,7 @@ namespace Microsoft.Azure.WebJobs.Script.Description
 
                 TraceWriter.Info(string.Format("Function started (Id={0})", invocationId));
 
+                //object[] finalParameters = GetFinalParameters(parameters);
                 parameters = ProcessInputParameters(parameters);
 
                 object functionResult = function.Invoke(null, parameters);

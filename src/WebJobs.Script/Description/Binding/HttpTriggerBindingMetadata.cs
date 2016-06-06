@@ -16,23 +16,13 @@ namespace Microsoft.Azure.WebJobs.Script.Description
 {
     public class HttpTriggerBindingMetadata : BindingMetadata
     {
-        private string _route;
-        private Dictionary<string, string> _queryParameterStructure;
 
         public HttpTriggerBindingMetadata()
         {
             AuthLevel = AuthorizationLevel.Function;
         }
 
-        public string Route
-        {
-            get { return _route; }
-            set
-            {
-                _route = value;
-                DeriveQueryParameterStructure();
-            }
-        }
+        public string Route { get; set; }
 
         [JsonProperty(ItemConverterType = typeof(HttpMethodJsonConverter))]
         public Collection<HttpMethod> Methods { get; set; }
@@ -41,12 +31,6 @@ namespace Microsoft.Azure.WebJobs.Script.Description
         public AuthorizationLevel AuthLevel { get; set; }
 
         public string WebHookType { get; set; }
-        public Dictionary<string, string> QueryParameterStructure { get { return _queryParameterStructure; } }
-
-        private void DeriveQueryParameterStructure()
-        {
-            _queryParameterStructure = Utility.ExtractPathParameters(Route);
-        }
 
     }
 }

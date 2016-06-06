@@ -98,6 +98,14 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
 
             arguments.Add(triggerParameter.Name, triggerArgument);
 
+            //add arguments from query string to avoid having WebJobs SDK throw an error for any parameters
+            //it doesn't find values from through bindings.
+            var otherArguments = Utility.ExtractQueryArguments(function.Metadata, request);
+            foreach (var argument in otherArguments)
+            {
+                arguments.Add(argument.Key, argument.Value);
+            }
+
             return arguments;
         }
 
@@ -171,10 +179,16 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
             }
             //ensure that the format doesn't start with a '/'. maybe should enforce as a rule for route templates.
             queryTemplate = queryTemplate.Trim('/');
+            //strip off the query parameters, as they are not technically part of the route we will recieve.
+            int queryParamsIndex = queryTemplate.IndexOf("?", StringComparison.OrdinalIgnoreCase);
+            if (queryParamsIndex > 0)
+            {
+                queryTemplate = queryTemplate.Substring(0, queryParamsIndex);
+            }
 
             StringBuilder queryBuilder = new StringBuilder();
             {
-                Dictionary<string, string> paramTypes = Utility.ExtractPathParameters(queryTemplate);
+                IDictionary<string, string> paramTypes = Utility.ExtractPathParameterTypes(queryTemplate);
                 var parsedTemplate = TemplateParser.Parse(queryTemplate);
                 var parameters = parsedTemplate?.Parameters?.ToList() ?? new List<TemplatePart>();
                 foreach (TemplatePart part in parameters)
@@ -209,14 +223,8 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
                     queryBuilder.Append(sectionString);
                 }
             }
-            //strip off the query parameters, as they are not technically part of the route we will recieve.
-            string fullTemplate = queryBuilder.ToString().Trim('/');
-            int queryParamsIndex = fullTemplate.IndexOf("?", StringComparison.OrdinalIgnoreCase);
-            if (queryParamsIndex > 0)
-            {
-                return fullTemplate.Substring(0, queryParamsIndex);
-            }
-            return fullTemplate;
+            
+            return queryBuilder.ToString().Trim('/');
         }
 
         protected override void OnHostStarted()
