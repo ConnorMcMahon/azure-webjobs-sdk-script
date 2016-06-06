@@ -2,6 +2,7 @@
 // Licensed under the MIT License. See License.txt in the project root for license information.
 
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
@@ -17,9 +18,6 @@ namespace Microsoft.Azure.WebJobs.Script.Description
 {
     public abstract class FunctionDescriptorProvider
     {
-        internal const string DefaultInputParameterName = "input";
-        internal const string DefaultHttpInputParameterName = "req";
-
         protected FunctionDescriptorProvider(ScriptHost host, ScriptHostConfiguration config)
         {
             Host = host;
@@ -37,35 +35,15 @@ namespace Microsoft.Azure.WebJobs.Script.Description
                 throw new InvalidOperationException("functionMetadata");
             }
 
-            functionDescriptor = null;
-
-            // Default the trigger binding name if a name hasn't
-            // been specified
-            // TODO: Remove this logic and always require it to be explicitly
-            // specified?
-            foreach (var binding in functionMetadata.Bindings.Where(p => p.IsTrigger))
-            {
-                if (string.IsNullOrEmpty(binding.Name))
-                {
-                    if (binding.Type == BindingType.HttpTrigger)
-                    {
-                        binding.Name = DefaultHttpInputParameterName;
-                    }
-                    else
-                    {
-                        binding.Name = DefaultInputParameterName;
-                    }
-                }
-            }
+            ValidateFunction(functionMetadata);
 
             // parse the bindings
             Collection<FunctionBinding> inputBindings = FunctionBinding.GetBindings(Config, functionMetadata.InputBindings, FileAccess.Read);
             Collection<FunctionBinding> outputBindings = FunctionBinding.GetBindings(Config, functionMetadata.OutputBindings, FileAccess.Write);
 
             BindingMetadata triggerMetadata = functionMetadata.InputBindings.FirstOrDefault(p => p.IsTrigger);
-          
             string scriptFilePath = Path.Combine(Config.RootScriptPath, functionMetadata.ScriptFile);
-
+            functionDescriptor = null;
             IFunctionInvoker invoker = null;
 
             try
@@ -166,6 +144,40 @@ namespace Microsoft.Azure.WebJobs.Script.Description
             triggerParameter.IsTrigger = true;
 
             return triggerParameter;
+        }
+
+        protected internal virtual void ValidateFunction(FunctionMetadata functionMetadata)
+        {
+            // Functions must have a trigger binding
+            var triggerMetadata = functionMetadata.InputBindings.FirstOrDefault(p => p.IsTrigger);
+            if (triggerMetadata == null)
+            {
+                throw new InvalidOperationException("No trigger binding specified. A function must have a trigger input binding.");
+            }
+
+            HashSet<string> names = new HashSet<string>();
+            foreach (var binding in functionMetadata.Bindings)
+            {
+                ValidateBinding(binding);
+
+                // Ensure no duplicate binding names
+                if (names.Contains(binding.Name))
+                {
+                    throw new InvalidOperationException(string.Format("Multiple bindings with name '{0}' discovered. Binding names must be unique.", binding.Name));
+                }
+                else
+                {
+                    names.Add(binding.Name);
+                }
+            }
+        }
+
+        protected internal virtual void ValidateBinding(BindingMetadata bindingMetadata)
+        {
+            if (string.IsNullOrEmpty(bindingMetadata.Name))
+            {
+                throw new ArgumentException("A valid name must be assigned to the binding.");
+            }
         }
 
         /// <summary>

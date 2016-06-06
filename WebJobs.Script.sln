@@ -250,6 +250,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "HttpTrigger-Powershell", "H
 		sample\HttpTrigger-Powershell\run.ps1 = sample\HttpTrigger-Powershell\run.ps1
 	EndProjectSection
 EndProject
+<<<<<<< HEAD
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "sample2", "sample2", "{C1695CB2-C4CF-4E8A-A656-37C766B60623}"
 	ProjectSection(SolutionItems) = preProject
 		sample2\host.json = sample2\host.json
@@ -271,6 +272,19 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "counterapi-autoinitialize",
 	ProjectSection(SolutionItems) = preProject
 		sample2\counterapi-autoinitialize\function.json = sample2\counterapi-autoinitialize\function.json
 		sample2\counterapi-autoinitialize\run.csx = sample2\counterapi-autoinitialize\run.csx
+=======
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "HttpTrigger-Powershell-Modules", "HttpTrigger-Powershell-Modules", "{CDF316B9-AB36-42CB-859B-FCDB56E083B0}"
+	ProjectSection(SolutionItems) = preProject
+		sample\HttpTrigger-Powershell-Modules\function.json = sample\HttpTrigger-Powershell-Modules\function.json
+		sample\HttpTrigger-Powershell-Modules\run.ps1 = sample\HttpTrigger-Powershell-Modules\run.ps1
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "modules", "modules", "{A751A732-ACCE-4B1F-8244-8DD161619483}"
+	ProjectSection(SolutionItems) = preProject
+		sample\HttpTrigger-Powershell-Modules\modules\Get-DateToday.psm1 = sample\HttpTrigger-Powershell-Modules\modules\Get-DateToday.psm1
+		sample\HttpTrigger-Powershell-Modules\modules\Show-Calendar.psd1 = sample\HttpTrigger-Powershell-Modules\modules\Show-Calendar.psd1
+		sample\HttpTrigger-Powershell-Modules\modules\Show-Calendar.psm1 = sample\HttpTrigger-Powershell-Modules\modules\Show-Calendar.psm1
+>>>>>>> refs/remotes/Azure/dev
 	EndProjectSection
 EndProject
 Global
@@ -346,8 +360,13 @@ Global
 		{C963B824-334A-4905-9AC7-2F373E5BC9CA} = {FF9C0818-30D3-437A-A62D-7A61CA44F459}
 		{94B16BEB-70BD-4357-A21A-D1E70C8CDDF0} = {FF9C0818-30D3-437A-A62D-7A61CA44F459}
 		{BCB7AB10-FDDB-4920-ADB0-E1FE2584CEBF} = {FF9C0818-30D3-437A-A62D-7A61CA44F459}
+<<<<<<< HEAD
 		{1541F8A5-17EF-4435-BA36-16C152D02499} = {C1695CB2-C4CF-4E8A-A656-37C766B60623}
 		{7CB3B102-3901-4521-8213-C95D78DB82EB} = {C1695CB2-C4CF-4E8A-A656-37C766B60623}
 		{535780F8-8B16-4916-BBE8-1F30621D93AC} = {C1695CB2-C4CF-4E8A-A656-37C766B60623}
+=======
+		{CDF316B9-AB36-42CB-859B-FCDB56E083B0} = {FF9C0818-30D3-437A-A62D-7A61CA44F459}
+		{A751A732-ACCE-4B1F-8244-8DD161619483} = {CDF316B9-AB36-42CB-859B-FCDB56E083B0}
+>>>>>>> refs/remotes/Azure/dev
 	EndGlobalSection
 EndGlobal

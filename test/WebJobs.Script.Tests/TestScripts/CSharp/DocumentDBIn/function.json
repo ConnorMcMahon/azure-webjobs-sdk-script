@@ -2,11 +2,12 @@
     "bindings": [
         {
             "type": "queueTrigger",
+            "name": "input",
             "queueName": "documentdb-input",
             "direction": "in"
         },
         {
-            "type": "documentdb",
+            "type": "documentDB",
             "name": "item",
             "direction": "in",
             "databaseName": "ItemDb",

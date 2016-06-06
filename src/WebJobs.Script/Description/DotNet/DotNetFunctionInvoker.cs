@@ -55,10 +55,10 @@ namespace Microsoft.Azure.WebJobs.Script.Description
             _compilationService = compilationServiceFactory.CreateService(functionMetadata.ScriptType, _metadataResolver);
             _inputBindings = inputBindings;
             _outputBindings = outputBindings;
+            _triggerInputName = functionMetadata.Bindings.FirstOrDefault(b => b.IsTrigger).Name;
 
-            _triggerInputName = GetTriggerInputName(functionMetadata);
             _metrics = host.ScriptConfig.HostConfig.GetService<IMetricsLogger>();
-                        
+
             InitializeFileWatcher();
 
             _resultProcessor = CreateResultProcessor();
@@ -70,20 +70,6 @@ namespace Microsoft.Azure.WebJobs.Script.Description
 
             _restorePackages = RestorePackages;
             _restorePackages = _restorePackages.Debounce();
-        }
-
-        // TODO: Is this function still needed? Can we factor it away?
-        private static string GetTriggerInputName(FunctionMetadata functionMetadata)
-        {
-            BindingMetadata triggerBinding = functionMetadata.Bindings.FirstOrDefault(b => b.IsTrigger);
-
-            string triggerName = null;
-            if (triggerBinding != null)
-            {
-                triggerName = triggerBinding.Name;
-            }
-
-            return triggerName ?? FunctionDescriptorProvider.DefaultInputParameterName;
         }
 
         private void InitializeFileWatcher()

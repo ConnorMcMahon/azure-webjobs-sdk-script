@@ -206,7 +206,8 @@ namespace Microsoft.Azure.WebJobs.Script
             {
                 new ScriptFunctionDescriptorProvider(this, ScriptConfig),
                 new NodeFunctionDescriptorProvider(this, ScriptConfig),
-                new DotNetFunctionDescriptionProvider(this, ScriptConfig)
+                new DotNetFunctionDescriptorProvider(this, ScriptConfig),
+                new PowerShellFunctionDescriptorProvider(this, ScriptConfig)
             };
 
             // read all script functions and apply to JobHostConfiguration
@@ -557,7 +558,7 @@ namespace Microsoft.Azure.WebJobs.Script
                 case "js":
                     return ScriptType.Javascript;
                 case "ps1":
-                    return ScriptType.Powershell;
+                    return ScriptType.PowerShell;
                 case "cmd":
                 case "bat":
                     return ScriptType.WindowsBatch;
