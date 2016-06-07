@@ -101,9 +101,12 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
             //add arguments from query string to avoid having WebJobs SDK throw an error for any parameters
             //it doesn't find values from through bindings.
             var otherArguments = Utility.ExtractQueryArguments(function.Metadata, request);
-            foreach (var argument in otherArguments)
+            if (otherArguments != null)
             {
-                arguments.Add(argument.Key, argument.Value);
+                foreach (var argument in otherArguments)
+                {
+                    arguments.Add(argument.Key, argument.Value);
+                }
             }
 
             return arguments;
