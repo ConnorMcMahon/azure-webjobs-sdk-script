@@ -32,6 +32,7 @@ namespace Microsoft.Azure.WebJobs.Script.Description
         private readonly IMetricsLogger _metrics;
         private readonly ReaderWriterLockSlim _functionValueLoaderLock = new ReaderWriterLockSlim();
         private readonly ICompilationService _compilationService;
+        private readonly IDictionary<string, string> _queryParameterTypes;
 
         private FunctionSignature _functionSignature;
         private IFunctionMetadataResolver _metadataResolver;
@@ -55,8 +56,13 @@ namespace Microsoft.Azure.WebJobs.Script.Description
             _compilationService = compilationServiceFactory.CreateService(functionMetadata.ScriptType, _metadataResolver);
             _inputBindings = inputBindings;
             _outputBindings = outputBindings;
-            _triggerInputName = functionMetadata.Bindings.FirstOrDefault(b => b.IsTrigger).Name;
-
+            var triggerInput = functionMetadata.Bindings.FirstOrDefault(b => b.IsTrigger);
+            _triggerInputName = triggerInput.Name;
+            var httpTriggerInput = triggerInput as HttpTriggerBindingMetadata;
+            _queryParameterTypes = (httpTriggerInput != null && httpTriggerInput.Route != null)
+                ? RoutingUtility.ExtractPathParameterTypes(httpTriggerInput.Route)
+                : new Dictionary<string, string>(); 
+            
             _metrics = host.ScriptConfig.HostConfig.GetService<IMetricsLogger>();
 
             InitializeFileWatcher();
@@ -166,31 +172,6 @@ namespace Microsoft.Azure.WebJobs.Script.Description
                 });
         }
 
-        private Object[] GetFinalParameters(object[] parameters)
-        {
-            var request = parameters[0] as HttpRequestMessage;
-            if (request == null)
-            {
-                return parameters;
-            }
-            else
-            {
-                IDictionary<string, object> otherParameters = Utility.ExtractQueryArguments(Metadata, request);
-                object[] newParameters = new object[parameters.Length + otherParameters.Count];
-                for (int i = 0; i < parameters.Length; i++)
-                {
-                    newParameters[i] = parameters[i];
-                }
-
-                var signatureParameters = _functionSignature.Parameters;
-                for (int i = parameters.Length; i < signatureParameters.Length; i++)
-                {
-                    newParameters[i] = otherParameters[signatureParameters[i].Name];
-                }
-                return newParameters;
-            }
-        }
-
         public override async Task Invoke(object[] parameters)
         {
             FunctionStartedEvent startedEvent = null;
@@ -213,7 +194,6 @@ namespace Microsoft.Azure.WebJobs.Script.Description
 
                 TraceWriter.Info(string.Format("Function started (Id={0})", invocationId));
 
-                //object[] finalParameters = GetFinalParameters(parameters);
                 parameters = ProcessInputParameters(parameters);
 
                 object functionResult = function.Invoke(null, parameters);
@@ -388,6 +368,17 @@ namespace Microsoft.Azure.WebJobs.Script.Description
             return ImmutableArray<Diagnostic>.Empty;
         }
 
+        private static bool IsCorrectType(string systemType, string queryType)
+        {
+            if ((systemType.Equals("Int32") && queryType.Equals("int"))
+                || (systemType.Equals("Boolean") && queryType.Equals("bool"))
+                || (systemType.Equals("String") && queryType.Equals("string")))
+            {
+                return true;
+            }
+            return false;
+        }
+
         private ImmutableArray<Diagnostic> ValidateFunctionBindingArguments(FunctionSignature functionSignature,
             ImmutableArray<Diagnostic>.Builder builder = null, bool throwIfFailed = false)
         {
@@ -416,6 +407,22 @@ namespace Microsoft.Azure.WebJobs.Script.Description
                     string message = string.Format(CultureInfo.InvariantCulture, "Missing binding argument named '{0}'.", binding.Metadata.Name);
                     var descriptor = new DiagnosticDescriptor(DotNetConstants.MissingBindingArgumentCompilationCode,
                         "Missing binding argument", message, "AzureFunctions", DiagnosticSeverity.Warning, true);
+
+                    resultBuilder.Add(Diagnostic.Create(descriptor, Location.None));
+                }
+            }
+
+            foreach (var parameters in _queryParameterTypes)
+            {
+                if (
+                    !functionSignature.Parameters.Any(
+                        p =>
+                            string.Compare(p.Name, parameters.Key, StringComparison.Ordinal) == 0 &&
+                            IsCorrectType(p.Type.Name, parameters.Value)))
+                {
+                    string message = string.Format(CultureInfo.InvariantCulture, "Missing query argument named '{0}'.", parameters.Key);
+                    var descriptor = new DiagnosticDescriptor(DotNetConstants.MissingBindingArgumentCompilationCode,
+                        "Missing query argument", message, "AzureFunctions", DiagnosticSeverity.Warning, true);
 
                     resultBuilder.Add(Diagnostic.Create(descriptor, Location.None));
                 }
