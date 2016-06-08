@@ -4,8 +4,8 @@
       "authLevel": "function",
       "name": "req",
       "type": "httpTrigger",
-      "methods": [ "get" ],
-      "route": "apicounter-increment?add=int",
+      "methods": [ "post" ],
+      "route": "counterapi?add=int",
       "direction": "in"
     },
     {

@@ -117,13 +117,14 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
             return getDataMethod.Invoke(null, new object[] { context });
         }
 
-        public FunctionDescriptor GetHttpFunctionOrNull(Uri uri)
+        public FunctionDescriptor GetHttpFunctionOrNull(HttpRequestMessage request)
         {
-            if (uri == null)
+            if (request == null)
             {
-                throw new ArgumentNullException("uri");
+                throw new ArgumentNullException("request");
             }
 
+            var uri = request.RequestUri;
             FunctionDescriptor function = null;
 
             if (HttpFunctions == null || HttpFunctions.Count == 0)
@@ -140,8 +141,10 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
                 idx = route.IndexOf('/', idx);
                 route = route.Substring(idx + 1).Trim('/');
 
+                route = (request.Method.Method + "/" + route).ToLowerInvariant();
+
                 //attempt to find if any of the keys exactly match this route
-                HttpFunctions.TryGetValue(route.ToLowerInvariant(), out function);
+                HttpFunctions.TryGetValue(route, out function);
 
                 //if still haven't found a function look at all of the regex patterns representing 
                 //routes in HttpFunctions.
@@ -212,7 +215,7 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
                             sectionString = @"/\d+/";
                             break;
                         case "bool":
-                            sectionString = @"/{true|false}/";
+                            sectionString = @"/(true)|(false)/";
                             break;
                         default:
                             sectionString = @"/\w+/";
@@ -252,9 +255,19 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
 
                     //add a regex prefix to the route based on what performance
                     var methods = httpTriggerBinding.Methods;
-                    string methodPrefix = methods == null
-                        ? @"/w+"
-                        : @"{" + String.Join("|", methods.Select(p => p.Method).ToArray()) + "}";
+                    string methodPrefix;
+                    if (methods == null)
+                    {
+                        methodPrefix = @"\w+/";
+                    }
+                    else if (methods.Count == 1)
+                    {
+                        methodPrefix = methods[0].Method + "/";
+                    }
+                    else
+                    {
+                        methodPrefix = "(" + String.Join("|", methods.Select(p => "(" + p.Method + ")").ToArray()) + ")/";
+                    }
                     route = methodPrefix + route;
 
                     HttpFunctions.Add(route.ToLowerInvariant(), function);
