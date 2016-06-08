@@ -11,7 +11,6 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.AspNet.Routing.Template;
 using Microsoft.AspNet.WebHooks;
 using Microsoft.Azure.WebJobs.Host;
 using Microsoft.Azure.WebJobs.Host.Loggers;
@@ -100,7 +99,7 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
 
             //add arguments from query string to avoid having WebJobs SDK throw an error for any parameters
             //it doesn't find values from through bindings.
-            var otherArguments = Utility.ExtractQueryArguments(function.Metadata, request);
+            var otherArguments = RoutingUtility.ExtractQueryArguments(function.Metadata, request);
             if (otherArguments != null)
             {
                 foreach (var argument in otherArguments)
@@ -190,41 +189,41 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
             }
 
             StringBuilder queryBuilder = new StringBuilder();
+
+            IDictionary<string, string> paramTypes = RoutingUtility.ExtractPathParameterTypes(queryTemplate);
+            var templateSections = queryTemplate.Split('/');
+            foreach (string segment in templateSections)
             {
-                IDictionary<string, string> paramTypes = Utility.ExtractPathParameterTypes(queryTemplate);
-                var parsedTemplate = TemplateParser.Parse(queryTemplate);
-                var parameters = parsedTemplate?.Parameters?.ToList() ?? new List<TemplatePart>();
-                foreach (TemplatePart part in parameters)
+                string sectionString;
+                if (segment.StartsWith("{", StringComparison.OrdinalIgnoreCase) &&
+                     segment.EndsWith("}", StringComparison.OrdinalIgnoreCase))
                 {
-                    string sectionString;
-                    if (part.IsParameter)
+                    string[] parameterParts = segment.Substring(1, segment.Length - 2).Split(':');
+                    //find the type for this parameter, defaulting to string
+                    string parameterType;
+                    paramTypes.TryGetValue(parameterParts[0], out parameterType);
+                    //generate a regular expression for this section that matches the appropriate type  
+                    switch (parameterType)
                     {
-                        //find the type for this parameter, defaulting to string
-                        string parameterType = "string";
-                        paramTypes.TryGetValue(part.Name, out parameterType);
-                        //generate a regular expression for this section that matches the appropriate type  
-                        switch (parameterType)
-                        {
-                            case "string":
-                                sectionString = @"/\w+/";
-                                break;
-                            case "int":
-                                sectionString = @"/\d+/";
-                                break;
-                            case "bool":
-                                sectionString = @"/{true|false}/";
-                                break;
-                            default:
-                                sectionString = @"/\w+/";
-                                break;
-                        }
+                        case "string":
+                            sectionString = @"/\w+/";
+                            break;
+                        case "int":
+                            sectionString = @"/\d+/";
+                            break;
+                        case "bool":
+                            sectionString = @"/{true|false}/";
+                            break;
+                        default:
+                            sectionString = @"/\w+/";
+                            break;
                     }
-                    else
-                    {
-                        sectionString = "/" + part.Name + "/";
-                    }
-                    queryBuilder.Append(sectionString);
                 }
+                else
+                {
+                    sectionString = "/" + segment + "/";
+                }
+                queryBuilder.Append(sectionString);
             }
             
             return queryBuilder.ToString().Trim('/');
@@ -245,11 +244,18 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
                     string route = httpTriggerBinding.Route;
                     route = QueryStringToRegexString(route);
 
-                    if (!string.IsNullOrEmpty(route))
+                    //if no route found default to the name of the function
+                    if (string.IsNullOrEmpty(route))
                     {
-                        route += "/";
+                        route = function.Name;
                     }
-                    route += function.Name;
+
+                    //add a regex prefix to the route based on what performance
+                    var methods = httpTriggerBinding.Methods;
+                    string methodPrefix = methods == null
+                        ? @"/w+"
+                        : @"{" + String.Join("|", methods.Select(p => p.Method).ToArray()) + "}";
+                    route = methodPrefix + route;
 
                     HttpFunctions.Add(route.ToLowerInvariant(), function);
                 }

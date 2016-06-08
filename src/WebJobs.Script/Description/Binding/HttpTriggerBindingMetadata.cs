@@ -9,8 +9,6 @@ using System.Net.Http;
 using System.Web.UI.WebControls.Expressions;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
-using Microsoft.AspNet.Routing.Template;
-
 
 namespace Microsoft.Azure.WebJobs.Script.Description
 {
