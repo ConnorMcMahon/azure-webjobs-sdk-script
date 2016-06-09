@@ -9,16 +9,24 @@ namespace Microsoft.Azure.WebJobs.Script
 {
     public static class RoutingUtility
     {
-        public static IDictionary<string, string> ExtractPathParameterTypes(string path)
+        public static IDictionary<string, string> ExtractQueryParameterTypes(string queryTemplate)
         {
             Dictionary<string, string> pathParameters = new Dictionary<string, string>();
-            if (path == null)
+            if (queryTemplate == null)
             {
                 return null;
             }
-            path = path.Trim('/');
+            queryTemplate = queryTemplate.Trim('/');
 
-            string[] routeSegments = path.Split('/');
+            string[] queryParts = queryTemplate.Split('?');
+            string routeTemplate = queryParts[0];
+            string queryParameters = null;
+            if (queryParts.Length == 2)
+            {
+                queryParameters = queryParts[1];
+            }
+
+            string[] routeSegments = routeTemplate.Split('/');
             //extract parameter types embedded within the route
             foreach (string segment in routeSegments)
             {
@@ -39,7 +47,7 @@ namespace Microsoft.Azure.WebJobs.Script
                         //parameter of form 'parameterName:parameterType'
                         pathParameters.Add(parameterParts[0], parameterParts[1]);
                     }
-                    else if (parameterParts.Length == 1)
+                    else if (parameterParts.Length == 1 && parameterParts[0].Length != 0)
                     {
                         //parameter is of the form 'parameterName', so just default it to string
                         pathParameters.Add(parameterParts[0], "string");
@@ -54,11 +62,9 @@ namespace Microsoft.Azure.WebJobs.Script
             }
 
             //extract traditional query string parameter types
-            int paramsBeginIndex = path.IndexOf("?", StringComparison.OrdinalIgnoreCase);
-            if (paramsBeginIndex > 0)
+            if (queryParameters != null)
             {
-                string namedParameterString = path.Substring(paramsBeginIndex + 1, path.Length - paramsBeginIndex - 1);
-                var queryParameterTypes = HttpUtility.ParseQueryString(namedParameterString);
+                var queryParameterTypes = HttpUtility.ParseQueryString(queryParameters);
                 foreach (var parameter in queryParameterTypes.AllKeys)
                 {
                     pathParameters.Add(parameter, queryParameterTypes[parameter]);
@@ -83,18 +89,23 @@ namespace Microsoft.Azure.WebJobs.Script
 
         public static string ExtractRouteFromMetadata(FunctionMetadata metadata)
         {
-            var inputBindings = metadata.InputBindings;
-            var trigger = inputBindings.First(p => p.Type == BindingType.HttpTrigger);
-            return ((HttpTriggerBindingMetadata)trigger).Route;
+            try
+            {
+                var inputBindings = metadata.InputBindings;
+                var trigger = inputBindings.First(p => p.Type == BindingType.HttpTrigger);
+                return ((HttpTriggerBindingMetadata) trigger).Route;
+            }
+            catch
+            {
+                return null;
+            }
+
         }
 
-        public static IDictionary<string, object> ExtractQueryArguments(FunctionMetadata metadata, HttpRequestMessage request)
+        public static IDictionary<string, object> ExtractQueryArguments(string template, HttpRequestMessage request)
         {
             IDictionary<string, object> arguments = new Dictionary<string, object>();
-            //obtain types for each of the parameter names
-            var inputBindings = metadata.InputBindings;
-            var trigger = inputBindings.First(p => p.Type == BindingType.HttpTrigger);
-            string template = ((HttpTriggerBindingMetadata)trigger).Route;
+
             if (template == null)
             {
                 return arguments;

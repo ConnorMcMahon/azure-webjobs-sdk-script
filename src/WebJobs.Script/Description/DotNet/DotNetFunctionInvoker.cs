@@ -56,11 +56,10 @@ namespace Microsoft.Azure.WebJobs.Script.Description
             _compilationService = compilationServiceFactory.CreateService(functionMetadata.ScriptType, _metadataResolver);
             _inputBindings = inputBindings;
             _outputBindings = outputBindings;
-            var triggerInput = functionMetadata.Bindings.FirstOrDefault(b => b.IsTrigger);
-            _triggerInputName = triggerInput.Name;
-            var httpTriggerInput = triggerInput as HttpTriggerBindingMetadata;
-            _queryParameterTypes = (httpTriggerInput != null && httpTriggerInput.Route != null)
-                ? RoutingUtility.ExtractPathParameterTypes(httpTriggerInput.Route)
+            _triggerInputName = functionMetadata.Bindings.FirstOrDefault(b => b.IsTrigger).Name;
+            var route = RoutingUtility.ExtractRouteFromMetadata(functionMetadata);
+            _queryParameterTypes = (route != null)
+                ? RoutingUtility.ExtractQueryParameterTypes(route)
                 : new Dictionary<string, string>(); 
             
             _metrics = host.ScriptConfig.HostConfig.GetService<IMetricsLogger>();

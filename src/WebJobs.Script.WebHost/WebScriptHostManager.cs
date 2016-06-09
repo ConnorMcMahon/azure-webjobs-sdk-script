@@ -99,7 +99,8 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
 
             //add arguments from query string to avoid having WebJobs SDK throw an error for any parameters
             //it doesn't find values from through bindings.
-            var otherArguments = RoutingUtility.ExtractQueryArguments(function.Metadata, request);
+            string routeTemplate = RoutingUtility.ExtractRouteFromMetadata(function.Metadata);
+            var otherArguments = RoutingUtility.ExtractQueryArguments(routeTemplate, request);
             if (otherArguments != null)
             {
                 foreach (var argument in otherArguments)
@@ -193,7 +194,7 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
 
             StringBuilder queryBuilder = new StringBuilder();
 
-            IDictionary<string, string> paramTypes = RoutingUtility.ExtractPathParameterTypes(queryTemplate);
+            IDictionary<string, string> paramTypes = RoutingUtility.ExtractQueryParameterTypes(queryTemplate);
             var templateSections = queryTemplate.Split('/');
             foreach (string segment in templateSections)
             {
