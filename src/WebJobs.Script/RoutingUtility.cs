@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Text;
 using System.Web;
 using Microsoft.Azure.WebJobs.Script.Description;
 
@@ -11,7 +12,7 @@ namespace Microsoft.Azure.WebJobs.Script
     {
         public static IDictionary<string, string> ExtractQueryParameterTypes(string queryTemplate)
         {
-            Dictionary<string, string> pathParameters = new Dictionary<string, string>();
+            Dictionary<string, string> templateParameterTypes = new Dictionary<string, string>();
             if (queryTemplate == null)
             {
                 return null;
@@ -45,12 +46,12 @@ namespace Microsoft.Azure.WebJobs.Script
                     if (parameterParts.Length == 2 && parameterParts[0].Length != 0 && parameterParts[1].Length != 0)
                     {
                         //parameter of form 'parameterName:parameterType'
-                        pathParameters.Add(parameterParts[0], parameterParts[1]);
+                        templateParameterTypes.Add(parameterParts[0], parameterParts[1]);
                     }
                     else if (parameterParts.Length == 1 && parameterParts[0].Length != 0)
                     {
                         //parameter is of the form 'parameterName', so just default it to string
-                        pathParameters.Add(parameterParts[0], "string");
+                        templateParameterTypes.Add(parameterParts[0], "string");
                     }
                     else
                     {
@@ -67,11 +68,11 @@ namespace Microsoft.Azure.WebJobs.Script
                 var queryParameterTypes = HttpUtility.ParseQueryString(queryParameters);
                 foreach (var parameter in queryParameterTypes.AllKeys)
                 {
-                    pathParameters.Add(parameter, queryParameterTypes[parameter]);
+                    templateParameterTypes.Add(parameter, queryParameterTypes[parameter]);
                 }
             }
 
-            return pathParameters;
+            return templateParameterTypes;
         }
 
         private static object CoerceArgumentType(string typeName, string value)
@@ -99,8 +100,65 @@ namespace Microsoft.Azure.WebJobs.Script
             {
                 return null;
             }
-
         }
+
+
+        public static string QueryStringToRegexString(string queryTemplate)
+        {
+            if (queryTemplate == null)
+            {
+                return null;
+            }
+            //ensure that the format doesn't start with a '/'. maybe should enforce as a rule for route templates.
+            queryTemplate = queryTemplate.Trim('/');
+            //strip off the query parameters, as they are not technically part of the route we will recieve.
+            int queryParamsIndex = queryTemplate.IndexOf("?", StringComparison.OrdinalIgnoreCase);
+            if (queryParamsIndex > 0)
+            {
+                queryTemplate = queryTemplate.Substring(0, queryParamsIndex);
+            }
+
+            StringBuilder queryBuilder = new StringBuilder();
+
+            IDictionary<string, string> paramTypes = RoutingUtility.ExtractQueryParameterTypes(queryTemplate);
+            var templateSections = queryTemplate.Split('/');
+            foreach (string segment in templateSections)
+            {
+                string sectionString;
+                if (segment.StartsWith("{", StringComparison.OrdinalIgnoreCase) &&
+                     segment.EndsWith("}", StringComparison.OrdinalIgnoreCase))
+                {
+                    string[] parameterParts = segment.Substring(1, segment.Length - 2).Split(':');
+                    //find the type for this parameter, defaulting to string
+                    string parameterType;
+                    paramTypes.TryGetValue(parameterParts[0], out parameterType);
+                    //generate a regular expression for this section that matches the appropriate type  
+                    switch (parameterType)
+                    {
+                        case "string":
+                            sectionString = @"/\w+/";
+                            break;
+                        case "int":
+                            sectionString = @"/\d+/";
+                            break;
+                        case "bool":
+                            sectionString = @"/(true)|(false)/";
+                            break;
+                        default:
+                            sectionString = @"/\w+/";
+                            break;
+                    }
+                }
+                else
+                {
+                    sectionString = "/" + segment + "/";
+                }
+                queryBuilder.Append(sectionString);
+            }
+
+            return queryBuilder.ToString().Trim('/');
+        }
+
 
         public static IDictionary<string, object> ExtractQueryArguments(string template, HttpRequestMessage request)
         {
