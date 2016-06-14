@@ -118,13 +118,12 @@ namespace Microsoft.Azure.WebJobs.Script
                 queryTemplate = queryTemplate.Substring(0, queryParamsIndex);
             }
 
-            StringBuilder queryBuilder = new StringBuilder();
-
             IDictionary<string, string> paramTypes = RoutingUtility.ExtractQueryParameterTypes(queryTemplate);
             var templateSections = queryTemplate.Split('/');
-            foreach (string segment in templateSections)
+            for (int i = 0; i < templateSections.Length; i++)
             {
-                string sectionString;
+                string segment = templateSections[i];
+                string sectionString = segment;
                 if (segment.StartsWith("{", StringComparison.OrdinalIgnoreCase) &&
                      segment.EndsWith("}", StringComparison.OrdinalIgnoreCase))
                 {
@@ -136,27 +135,23 @@ namespace Microsoft.Azure.WebJobs.Script
                     switch (parameterType)
                     {
                         case "string":
-                            sectionString = @"/\w+/";
+                            sectionString = @"[^/]+";
                             break;
                         case "int":
-                            sectionString = @"/\d+/";
+                            sectionString = @"\d+";
                             break;
                         case "bool":
-                            sectionString = @"/(true)|(false)/";
+                            sectionString = @"(true)|(false)";
                             break;
                         default:
-                            sectionString = @"/\w+/";
+                            sectionString = @"[^/]+";
                             break;
                     }
                 }
-                else
-                {
-                    sectionString = "/" + segment + "/";
-                }
-                queryBuilder.Append(sectionString);
+                templateSections[i] = sectionString;
             }
 
-            return queryBuilder.ToString().Trim('/');
+            return String.Join("/", templateSections).Trim('/');
         }
 
 

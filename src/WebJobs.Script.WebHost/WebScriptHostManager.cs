@@ -212,7 +212,7 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
                     {
                         methodPrefix = "(" + String.Join("|", methods.Select(p => "(" + p.Method + ")").ToArray()) + ")/";
                     }
-                    route = methodPrefix + route;
+                    route = "^" + methodPrefix + route + "$";
 
                     HttpFunctions.Add(route.ToLowerInvariant(), function);
                 }

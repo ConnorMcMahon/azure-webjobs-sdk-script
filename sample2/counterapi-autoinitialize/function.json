@@ -4,6 +4,8 @@
       "authLevel": "function",
       "name": "req",
       "type": "httpTrigger",
+      "route":  "counter/{countername}/initialize",
+      "methods": ["get"],
       "direction": "in"
     },
     {
@@ -13,15 +15,7 @@
     },
     {
       "type": "table",
-      "name": "counterIn",
-      "tableName": "apicountertablelocal",
-      "connection": "AzureWebJobsStorage",
-      "partitionKey": "items",
-      "direction": "in"
-    },
-    {
-      "type": "table",
-      "name": "counterOut",
+      "name": "counter",
       "tableName": "apicountertablelocal",
       "partitionKey": "items",
       "rowKey": "%rand-guid%",

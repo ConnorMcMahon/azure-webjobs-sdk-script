@@ -1,30 +1,36 @@
 #r "Microsoft.WindowsAzure.Storage"
 using System.Net;
+using Microsoft.WindowsAzure.Storage;
 using Microsoft.WindowsAzure.Storage.Table;
 
-public static async Task<HttpResponseMessage> Run(HttpRequestMessage req, TraceWriter log, Counter counter, int add)
+public static async Task<HttpResponseMessage> Run(HttpRequestMessage req, TraceWriter log, CloudTable tableBinding, int add, string countername)
 {
-    counter.Value += add;
-
     HttpResponseMessage res = null;
-    if (counter.Value <= 0)
+    try
+    {
+        var getCurrentValue = new TableQuery<Counter>().Where(TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.Equal, countername));
+
+        Counter counter = tableBinding.ExecuteQuery(getCurrentValue).First();
+        counter.Value += add;
+
+        TableOperation updateOperation = TableOperation.Replace(counter);
+        tableBinding.Execute(updateOperation);
+        res = new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("Updated the value of the counter by " + add + ".")
+        };
+    }
+    catch
     {
         res = new HttpResponseMessage(HttpStatusCode.BadRequest)
         {
             Content = new StringContent("Failed to update the counter.")
         };
     }
-    else
-    {
-        res = new HttpResponseMessage(HttpStatusCode.OK)
-        {
-            Content = new StringContent("Updated the value of the counter by " + add + ".")
-        };
-    }
 
     return res;
-
 }
+
 
 public class Counter : TableEntity
 {

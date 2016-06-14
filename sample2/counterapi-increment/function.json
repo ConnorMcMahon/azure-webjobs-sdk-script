@@ -4,8 +4,8 @@
       "authLevel": "function",
       "name": "req",
       "type": "httpTrigger",
-      "methods": [ "post" ],
-      "route": "counterapi?add=int",
+      "methods": [ "get" ],
+      "route": "counter/{countername}/increment?add=int",
       "direction": "in"
     },
     {
@@ -15,12 +15,11 @@
     },
     {
       "type": "table",
-      "name": "counter",
+      "name": "tableBinding",
       "tableName": "apicountertablelocal",
       "connection": "AzureWebJobsStorage",
       "direction": "in",
-      "partitionKey": "items",
-      "rowKey": "Counter"
+      "partitionKey": "items"
     }
   ],
   "disabled": false
