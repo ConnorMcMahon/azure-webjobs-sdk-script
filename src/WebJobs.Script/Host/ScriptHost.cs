@@ -4,10 +4,12 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,6 +22,9 @@ using Microsoft.Azure.WebJobs.Script.Diagnostics;
 using Microsoft.Azure.WebJobs.ServiceBus;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using YamlDotNet.Serialization;
+using YamlDotNet.Serialization.NamingConventions;
+using BindingDirection = Microsoft.Azure.WebJobs.Script.Description.BindingDirection;
 
 namespace Microsoft.Azure.WebJobs.Script
 {
@@ -348,6 +353,62 @@ namespace Microsoft.Azure.WebJobs.Script
             return functionMetadata;
         }
 
+        private static List<FunctionMetadata> ParseApiMetadata(string apiPath, ApiConfig configMetadata)
+        {
+            List<FunctionMetadata> apiFunctions = new List<FunctionMetadata>();
+            foreach (var function in configMetadata.Functions)
+            {
+                FunctionMetadata functionMetadata = new FunctionMetadata
+                {
+                    Name = Path.GetFileName(Path.GetDirectoryName(apiPath)) + "-" + function.Name,
+                };
+                if (function.BindingDetails != null)
+                {
+                    foreach (var binding in function.BindingDetails)
+                    {
+                        BindingMetadata bindingMetadata;
+                        var type = (BindingType)Enum.Parse(typeof(BindingType), binding.BindingType, true);
+                        switch (type)
+                        {
+                            case BindingType.Table:
+                                bindingMetadata = new TableBindingMetadata();
+                                bindingMetadata.Connection = configMetadata.TableStorage.Connection;
+                                ((TableBindingMetadata)bindingMetadata).PartitionKey = configMetadata.TableStorage.PartitionKey;
+                                ((TableBindingMetadata)bindingMetadata).TableName = configMetadata.TableStorage.Table;
+                                break;
+                            case BindingType.HttpTrigger:
+                                bindingMetadata = new HttpTriggerBindingMetadata();
+                                string routeMethodTemplate = function.Route;
+                                string[] routeParts = routeMethodTemplate.Trim(new char[] { ']', '[' }).Split(' ');
+                                //use the route template from the route/method template
+                                ((HttpTriggerBindingMetadata)bindingMetadata).Route = routeParts[1];
+                                //get the method tag from the route/method template
+                                Collection<HttpMethod> methods = new Collection<HttpMethod>();
+                                methods.Add(new HttpMethod(routeParts[0]));
+                                ((HttpTriggerBindingMetadata)bindingMetadata).Methods = methods;
+                                //sets the default auth level to function level
+                                ((HttpTriggerBindingMetadata)bindingMetadata).AuthLevel = AuthorizationLevel.Function;
+                                break;
+                            default:
+                                bindingMetadata = new BindingMetadata();
+                                break;
+                        }
+                        //add universal binding metadata info
+                        bindingMetadata.Direction = (BindingDirection) Enum.Parse(typeof(BindingDirection), binding.Direction, true);
+                        bindingMetadata.Type = type;
+                        bindingMetadata.Name = binding.Name;
+
+                        functionMetadata.Bindings.Add(bindingMetadata);
+                    }
+                }
+                functionMetadata.ScriptType = (ScriptType) Enum.Parse(typeof(ScriptType), configMetadata.Language, true);
+                functionMetadata.ScriptCode = configMetadata.CommonCode != null ? configMetadata.CommonCode + "\n" + function.Code : function.Code;
+                functionMetadata.ScriptFile = apiPath;
+                apiFunctions.Add(functionMetadata);
+            }
+            return apiFunctions;
+        }
+
         private static BindingMetadata ParseBindingMetadata(JObject binding, INameResolver nameResolver)
         {
             BindingMetadata bindingMetadata = null;
@@ -448,54 +509,70 @@ namespace Microsoft.Azure.WebJobs.Script
                 {
                     // read the function config
                     string functionConfigPath = Path.Combine(scriptDir, ScriptConstants.FunctionMetadataFileName);
-                    if (!File.Exists(functionConfigPath))
+                    string apiConfigPath = Path.Combine(scriptDir, ScriptConstants.ApiMetadataFileName);
+                    if (File.Exists(functionConfigPath))
+                    {
+                        functionName = Path.GetFileNameWithoutExtension(scriptDir);
+
+                        if (ScriptConfig.Functions != null &&
+                            !ScriptConfig.Functions.Contains(functionName, StringComparer.OrdinalIgnoreCase))
+                        {
+                            // a functions filter has been specified and the current function is
+                            // not in the filter list
+                            continue;
+                        }
+
+                        ValidateFunctionName(functionName);
+
+                        // TODO: we need to define a json schema document and do
+                        // schema validation and give more informative responses 
+                        string json = File.ReadAllText(functionConfigPath);
+                        JObject functionConfig = JObject.Parse(json);
+                        FunctionMetadata metadata = ParseFunctionMetadata(functionName, config.HostConfig.NameResolver, functionConfig);
+
+                        // determine the primary script
+                        string[] functionFiles = Directory.EnumerateFiles(scriptDir).Where(p => Path.GetFileName(p).ToLowerInvariant() != ScriptConstants.FunctionMetadataFileName).ToArray();
+                        if (functionFiles.Length == 0)
+                        {
+                            AddFunctionError(functionName, "No function script files present.");
+                            continue;
+                        }
+                        string scriptFile = DeterminePrimaryScriptFile(functionConfig, functionFiles);
+                        if (string.IsNullOrEmpty(scriptFile))
+                        {
+                            AddFunctionError(functionName,
+                                "Unable to determine the primary function script. Try renaming your entry point script to 'run' (or 'index' in the case of Node), " +
+                                "or alternatively you can specify the name of the entry point script explicitly by adding a 'scriptFile' property to your function metadata.");
+                            continue;
+                        }
+                        metadata.ScriptFile = scriptFile;
+
+                        // determine the script type based on the primary script file extension
+                        metadata.ScriptType = ParseScriptType(metadata.ScriptFile);
+
+                        metadatas.Add(metadata);
+                    } else if (File.Exists(apiConfigPath))
+                    {
+                        string yamlText = File.ReadAllText(apiConfigPath);
+                        using (var yaml = new StringReader(yamlText))
+                        {
+                            var deserializer = new Deserializer(namingConvention: new CamelCaseNamingConvention());
+                            var apiConfig = deserializer.Deserialize<ApiConfig>(yaml);
+                            List<FunctionMetadata> apimetadata = ParseApiMetadata(apiConfigPath, apiConfig);
+                            foreach (var metadata in apimetadata)
+                            {
+                                metadatas.Add(metadata);
+                            }
+                        }
+                    }
+                    else
                     {
                         // not a function directory
                         continue;
                     }
-
-                    functionName = Path.GetFileNameWithoutExtension(scriptDir);
-
-                    if (ScriptConfig.Functions != null &&
-                        !ScriptConfig.Functions.Contains(functionName, StringComparer.OrdinalIgnoreCase))
-                    {
-                        // a functions filter has been specified and the current function is
-                        // not in the filter list
-                        continue;
-                    }
-
-                    ValidateFunctionName(functionName);
-
-                    // TODO: we need to define a json schema document and do
-                    // schema validation and give more informative responses 
-                    string json = File.ReadAllText(functionConfigPath);
-                    JObject functionConfig = JObject.Parse(json);
-                    FunctionMetadata metadata = ParseFunctionMetadata(functionName, config.HostConfig.NameResolver, functionConfig);
-
-                    // determine the primary script
-                    string[] functionFiles = Directory.EnumerateFiles(scriptDir).Where(p => Path.GetFileName(p).ToLowerInvariant() != ScriptConstants.FunctionMetadataFileName).ToArray();
-                    if (functionFiles.Length == 0)
-                    {
-                        AddFunctionError(functionName, "No function script files present.");
-                        continue;
-                    }
-                    string scriptFile = DeterminePrimaryScriptFile(functionConfig, functionFiles);
-                    if (string.IsNullOrEmpty(scriptFile))
-                    {
-                        AddFunctionError(functionName, 
-                            "Unable to determine the primary function script. Try renaming your entry point script to 'run' (or 'index' in the case of Node), " +
-                            "or alternatively you can specify the name of the entry point script explicitly by adding a 'scriptFile' property to your function metadata.");
-                        continue;
-                    }
-                    metadata.ScriptFile = scriptFile;
-
-                    // determine the script type based on the primary script file extension
-                    metadata.ScriptType = ParseScriptType(metadata.ScriptFile);
-
-                    metadatas.Add(metadata);
                 }
                 catch (Exception ex)
-                {
+               {
                     // log any unhandled exceptions and continue
                     AddFunctionError(functionName, ex.Message);
                 }

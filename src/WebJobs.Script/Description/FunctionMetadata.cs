@@ -22,6 +22,8 @@ namespace Microsoft.Azure.WebJobs.Script.Description
         /// </summary>
         public string ScriptFile { get; set; }
 
+        public string ScriptCode { get; set; }
+
         public ScriptType ScriptType { get; set; }
 
         public bool IsDisabled { get; set; }

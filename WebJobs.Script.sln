@@ -264,10 +264,15 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "counterapi-increment", "counterapi-increment", "{7CB3B102-3901-4521-8213-C95D78DB82EB}"
 	ProjectSection(SolutionItems) = preProject
 		sample2\counterapi-increment\function.json = sample2\counterapi-increment\function.json
+		sample2\counterapi-increment\project.json = sample2\counterapi-increment\project.json
 		sample2\counterapi-increment\run.csx = sample2\counterapi-increment\run.csx
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "counterapi-autoinitialize", "counterapi-autoinitialize", "{535780F8-8B16-4916-BBE8-1F30621D93AC}"
+	ProjectSection(SolutionItems) = preProject
+		sample2\counterapi-autoinitialize\function.json = sample2\counterapi-autoinitialize\function.json
+		sample2\counterapi-autoinitialize\run.csx = sample2\counterapi-autoinitialize\run.csx
+	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "HttpTrigger-Powershell-Modules", "HttpTrigger-Powershell-Modules", "{CDF316B9-AB36-42CB-859B-FCDB56E083B0}"
 	ProjectSection(SolutionItems) = preProject
@@ -280,6 +285,11 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "modules", "modules", "{A751
 		sample\HttpTrigger-Powershell-Modules\modules\Get-DateToday.psm1 = sample\HttpTrigger-Powershell-Modules\modules\Get-DateToday.psm1
 		sample\HttpTrigger-Powershell-Modules\modules\Show-Calendar.psd1 = sample\HttpTrigger-Powershell-Modules\modules\Show-Calendar.psd1
 		sample\HttpTrigger-Powershell-Modules\modules\Show-Calendar.psm1 = sample\HttpTrigger-Powershell-Modules\modules\Show-Calendar.psm1
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "counter", "counter", "{F5F67057-07CC-4250-99FC-A3EF9BB85A15}"
+	ProjectSection(SolutionItems) = preProject
+		sample2\counter\api.yaml = sample2\counter\api.yaml
 	EndProjectSection
 EndProject
 Global
@@ -360,5 +370,6 @@ Global
 		{535780F8-8B16-4916-BBE8-1F30621D93AC} = {C1695CB2-C4CF-4E8A-A656-37C766B60623}
 		{CDF316B9-AB36-42CB-859B-FCDB56E083B0} = {FF9C0818-30D3-437A-A62D-7A61CA44F459}
 		{A751A732-ACCE-4B1F-8244-8DD161619483} = {CDF316B9-AB36-42CB-859B-FCDB56E083B0}
+		{F5F67057-07CC-4250-99FC-A3EF9BB85A15} = {C1695CB2-C4CF-4E8A-A656-37C766B60623}
 	EndGlobalSection
 EndGlobal
