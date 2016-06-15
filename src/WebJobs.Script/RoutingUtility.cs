@@ -93,8 +93,15 @@ namespace Microsoft.Azure.WebJobs.Script
             try
             {
                 var inputBindings = metadata.InputBindings;
-                var trigger = inputBindings.First(p => p.Type == BindingType.HttpTrigger);
-                return ((HttpTriggerBindingMetadata) trigger).Route;
+                var trigger = inputBindings.FirstOrDefault(p => p.Type == BindingType.HttpTrigger);
+                if (trigger != null)
+                {
+                    return ((HttpTriggerBindingMetadata) trigger).Route;
+                }
+                else
+                {
+                    return null;
+                }
             }
             catch
             {

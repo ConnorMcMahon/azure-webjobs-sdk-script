@@ -305,7 +305,7 @@
     <Compile Include="Binding\QueueBinding.cs" />
     <Compile Include="Binding\ServiceBusBinding.cs" />
     <Compile Include="Binding\TableBinding.cs" />
-    <Compile Include="YamlUtility.cs" />
+    <Compile Include="ParseUtility.cs" />
     <Compile Include="Description\DotNet\DiagnosticExtensions.cs" />
     <Compile Include="Description\DotNet\CSharp\Analyzers\InvalidFileMetadataReferenceAnalyzer.cs" />
     <Compile Include="Description\Binding\ApiHubTableBindingMetadata.cs" />

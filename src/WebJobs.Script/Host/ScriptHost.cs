@@ -362,6 +362,9 @@ namespace Microsoft.Azure.WebJobs.Script
                 {
                     Name = Path.GetFileName(Path.GetDirectoryName(apiPath)) + "-" + function.Name,
                 };
+
+                BindingMetadata triggerBindingMetadata = ParseUtility.GetTriggerBindingMetadata(function.Trigger);
+
                 if (function.BindingDetails != null)
                 {
                     foreach (var binding in function.BindingDetails)
@@ -377,15 +380,10 @@ namespace Microsoft.Azure.WebJobs.Script
                                 ((TableBindingMetadata)bindingMetadata).TableName = configMetadata.TableStorage.Table;
                                 break;
                             case BindingType.HttpTrigger:
-                                bindingMetadata = new HttpTriggerBindingMetadata();
-                                string routeMethodTemplate = function.Action;
-                                string[] routeParts = routeMethodTemplate.Trim(new char[] { ']', '[' }).Split(' ');
-                                //use the route template from the route/method template
-                                ((HttpTriggerBindingMetadata)bindingMetadata).Route = routeParts[1];
-                                //get the method tag from the route/method template
-                                Collection<HttpMethod> methods = new Collection<HttpMethod>();
-                                methods.Add(new HttpMethod(routeParts[0]));
-                                ((HttpTriggerBindingMetadata)bindingMetadata).Methods = methods;
+                                bindingMetadata = triggerBindingMetadata;
+                                break;
+                            case BindingType.TimerTrigger:
+                                bindingMetadata = triggerBindingMetadata;
                                 break;
                             default:
                                 bindingMetadata = new BindingMetadata();
@@ -399,40 +397,7 @@ namespace Microsoft.Azure.WebJobs.Script
                         functionMetadata.Bindings.Add(bindingMetadata);
                     }
                     //fill in default bindings (i.e. httptrigger-in and http-out if not present)
-                    var httpTrigger =
-                        (HttpTriggerBindingMetadata) functionMetadata.Bindings.FirstOrDefault(
-                            p => p.Type == BindingType.HttpTrigger && p.Direction == BindingDirection.In);
-                    if (httpTrigger == null)
-                    {
-                        httpTrigger = new HttpTriggerBindingMetadata()
-                        {
-                            Direction = BindingDirection.In,
-                            Name = "req",
-                            Type = BindingType.HttpTrigger,
-                        };
-                        string routeMethodTemplate = function.Action;
-                        string[] routeParts = routeMethodTemplate.Trim(new char[] { ']', '[' }).Split(' ');
-                        //use the route template from the route/method template
-                        httpTrigger.Route = routeParts[1];
-                        //get the method tag from the route/method template
-                        Collection<HttpMethod> methods = new Collection<HttpMethod>();
-                        methods.Add(new HttpMethod(routeParts[0]));
-                        httpTrigger.Methods = methods;
-                        functionMetadata.Bindings.Add(httpTrigger);
-                    }
-                    var response =
-                        functionMetadata.Bindings.FirstOrDefault(
-                            p => p.Type == BindingType.Http && p.Direction == BindingDirection.Out);
-                    if (response == null)
-                    {
-                        response = new HttpBindingMetadata()
-                        {
-                            Direction = BindingDirection.Out,
-                            Name = "res",
-                            Type = BindingType.Http
-                        };
-                        functionMetadata.Bindings.Add(response);
-                    }
+                    ParseUtility.CreateDefaultBindings(functionMetadata, triggerBindingMetadata);
                 }
                 //add generic function metadata
                 functionMetadata.ScriptType = (ScriptType) Enum.Parse(typeof(ScriptType), configMetadata.Language, true);
