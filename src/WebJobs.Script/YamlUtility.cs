@@ -34,7 +34,7 @@ namespace Microsoft.Azure.WebJobs.Script
     {
         private Collection<BindingDetail> _bindingDetails;
         public string Name { get; set; }
-        public string Route { get; set; }
+        public string Action { get; set; }
         public string Code { get; set; }
         //supressed to allow yaml parser to assign a value to the property
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage",

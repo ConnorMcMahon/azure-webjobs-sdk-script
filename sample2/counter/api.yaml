@@ -11,13 +11,15 @@ commonCode: |
         using System.Net;
         using Microsoft.WindowsAzure.Storage.Table;
         using System.Net.Http;
+        public class Counter : TableEntity
+        {
+            public int Value { get; set; }
+        }
     
 functions:
     - name: initialize
       route: "[GET counteryaml/{countername}/initialize]"
       bindings:
-        - "req:httpTrigger-in"
-        - "res:http-out"
         - "counter:table-out"
       code: |
         public static async Task<HttpResponseMessage> Run(HttpRequestMessage req, TraceWriter log, ICollector<Counter> counter, String countername)
@@ -39,23 +41,17 @@ functions:
             }
             catch
             {
-                res = new HttpResponseMessage(HttpStatusCode.OK)
+                res = new HttpResponseMessage(HttpStatusCode.BadRequest)
                 {
                     Content = new StringContent("The counter already exists")
                 };
             }
             return res;
         }
-        public class Counter : TableEntity
-        {
-            public int Value { get; set; }
-        }
 
     - name: get
       route: "[GET counteryaml/{countername}]"
       bindings:
-        - "req:httpTrigger-in"
-        - "res:http-out"
         - "counters:table-in"
       code: |
         public static async Task<HttpResponseMessage> Run(HttpRequestMessage req, TraceWriter log, IQueryable<Counter> counters, string countername)
@@ -78,15 +74,10 @@ functions:
             }
             return res;
         }  
-        public class Counter : TableEntity
-        {
-            public int Value { get; set; }
-        }
+
     - name: add
       route: "[GET counteryaml/{countername}/increment?add=int]"
       bindings:
-        - "req:httpTrigger-in"
-        - "res:http-out"
         - "tableBinding:table-out"
       code: |
         public static async Task<HttpResponseMessage> Run(HttpRequestMessage req, TraceWriter log, CloudTable tableBinding, int add, string countername)
@@ -114,7 +105,4 @@ functions:
             }
             return res;
         }
-        public class Counter : TableEntity
-        {
-            public int Value { get; set; }
-        }
+
