@@ -1,11 +1,11 @@
 {
   "bindings": [
     {
-      "authLevel": "function",
+      "authLevel": "anonymous",
       "name": "req",
       "type": "httpTrigger",
-      "route":  "counter/{countername}/initialize",
-      "methods": ["get"],
+      "route":  "counter/{countername}",
+      "methods": ["put"],
       "direction": "in"
     },
     {
