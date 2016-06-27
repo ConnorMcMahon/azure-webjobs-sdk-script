@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
-using System.Text;
 using System.Web;
 using Microsoft.Azure.WebJobs.Script.Description;
 
@@ -10,6 +9,12 @@ namespace Microsoft.Azure.WebJobs.Script
 {
     public static class RoutingUtility
     {
+        private static bool IsBracketed(string segment)
+        {
+            return segment.StartsWith("{", StringComparison.OrdinalIgnoreCase) &&
+                   segment.EndsWith("}", StringComparison.OrdinalIgnoreCase);
+        }
+
         public static IDictionary<string, string> ExtractQueryParameterTypes(string queryTemplate)
         {
             Dictionary<string, string> templateParameterTypes = new Dictionary<string, string>();
@@ -38,8 +43,7 @@ namespace Microsoft.Azure.WebJobs.Script
                     return null;
                 }
                 //if the segment starts with an open brace, then this segment describes a parameter
-                if (segment.StartsWith("{", StringComparison.OrdinalIgnoreCase) &&
-                     segment.EndsWith("}", StringComparison.OrdinalIgnoreCase))
+                if (IsBracketed(segment))
                 {
                     //grab everything in the segment except the first and last character i.e. the braces
                     string[] parameterParts = segment.Substring(1, segment.Length - 2).Split(':');
@@ -93,15 +97,8 @@ namespace Microsoft.Azure.WebJobs.Script
             try
             {
                 var inputBindings = metadata.InputBindings;
-                var trigger = inputBindings.FirstOrDefault(p => p.Type == BindingType.HttpTrigger);
-                if (trigger != null)
-                {
-                    return ((HttpTriggerBindingMetadata) trigger).Route;
-                }
-                else
-                {
-                    return null;
-                }
+                var trigger = inputBindings.FirstOrDefault(p => p.Type == BindingType.HttpTrigger) as HttpTriggerBindingMetadata;
+                return trigger?.Route;
             }
             catch
             {
@@ -125,14 +122,13 @@ namespace Microsoft.Azure.WebJobs.Script
                 queryTemplate = queryTemplate.Substring(0, queryParamsIndex);
             }
 
-            IDictionary<string, string> paramTypes = RoutingUtility.ExtractQueryParameterTypes(queryTemplate);
+            IDictionary<string, string> paramTypes = ExtractQueryParameterTypes(queryTemplate);
             var templateSections = queryTemplate.Split('/');
             for (int i = 0; i < templateSections.Length; i++)
             {
                 string segment = templateSections[i];
                 string sectionString = segment;
-                if (segment.StartsWith("{", StringComparison.OrdinalIgnoreCase) &&
-                     segment.EndsWith("}", StringComparison.OrdinalIgnoreCase))
+                if (IsBracketed(segment))
                 {
                     string[] parameterParts = segment.Substring(1, segment.Length - 2).Split(':');
                     //find the type for this parameter, defaulting to string
@@ -158,7 +154,7 @@ namespace Microsoft.Azure.WebJobs.Script
                 templateSections[i] = sectionString;
             }
 
-            return String.Join("/", templateSections).Trim('/');
+            return string.Join("/", templateSections).Trim('/');
         }
 
 
@@ -216,8 +212,7 @@ namespace Microsoft.Azure.WebJobs.Script
                         continue;
                     }
                     //if the segment starts with an open brace, then this segment describes a parameter
-                    if (templateSegment.StartsWith("{", StringComparison.OrdinalIgnoreCase) &&
-                         templateSegment.EndsWith("}", StringComparison.OrdinalIgnoreCase))
+                    if (IsBracketed(templateSegment))
                     {
                         //grab everything in the segment except the first and last character i.e. the braces
                         string[] parameterParts = templateSegment.Substring(1, templateSegment.Length - 2).Split(':');

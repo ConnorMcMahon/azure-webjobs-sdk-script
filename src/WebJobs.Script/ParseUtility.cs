@@ -2,12 +2,9 @@
 // Licensed under the MIT License. See License.txt in the project root for license information.
 
 using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Configuration;
 using System.Linq;
 using System.Net.Http;
-using System.Text;
 using Microsoft.Azure.WebJobs.Script.Description;
 using YamlDotNet.Serialization;
 
@@ -111,6 +108,7 @@ namespace Microsoft.Azure.WebJobs.Script
 
     public class FunctionDetails
     {
+        private Collection<string> _bindingStrings;
         private Collection<BindingDetail> _bindingDetails;
         public string Name { get; set; }
         public string Trigger { get; set; }
@@ -121,18 +119,24 @@ namespace Microsoft.Azure.WebJobs.Script
         [YamlMember(Alias = "bindings")]
         public Collection<string> BindingStrings
         {
-            get { return BindingStrings; }
+            get { return _bindingStrings; }
             set
             {
+                _bindingStrings = value;
                 _bindingDetails = new Collection<BindingDetail>();
-                foreach (string bindingString in value)
+                foreach (string bindingString in _bindingStrings)
                 {
                     string[] bindingParts = bindingString.Split(new char[] { ':', '-' });
-                    var bindingDetail = new BindingDetail();
-                    bindingDetail.Name = bindingParts[0];
-                    bindingDetail.BindingType = bindingParts[1];
-                    bindingDetail.Direction = bindingParts[2];
-                    _bindingDetails.Add(bindingDetail);
+                    if (bindingParts.Length == 3)
+                    {
+                        var bindingDetail = new BindingDetail()
+                        {
+                            Name = bindingParts[0],
+                            BindingType = bindingParts[1],
+                            Direction = bindingParts[2]
+                        };
+                        _bindingDetails.Add(bindingDetail);
+                    }
                 }
             }
         }
