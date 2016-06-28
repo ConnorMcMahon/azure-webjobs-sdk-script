@@ -360,6 +360,13 @@ namespace Microsoft.Azure.WebJobs.Script.Description
             requestObject["method"] = request.Method.ToString().ToUpperInvariant();
             requestObject["query"] = request.GetQueryNameValuePairs().ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
 
+            var httpTrigger = _trigger as HttpTriggerBindingMetadata;
+            if (httpTrigger != null)
+            {
+                requestObject["parameters"] = RoutingUtility.ExtractQueryArguments(httpTrigger.Route, request);
+            }
+
+
             Dictionary<string, string> headers = new Dictionary<string, string>();
             foreach (var header in request.Headers)
             {

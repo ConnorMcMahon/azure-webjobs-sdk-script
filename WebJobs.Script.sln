@@ -292,6 +292,12 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "counter", "counter", "{F5F6
 		sample2\counter\api.yaml = sample2\counter\api.yaml
 	EndProjectSection
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "counternode-get", "counternode-get", "{7FBA890C-8C21-460C-8ABF-BAA0470C001A}"
+	ProjectSection(SolutionItems) = preProject
+		sample2\counternode-get\function.json = sample2\counternode-get\function.json
+		sample2\counternode-get\index.js = sample2\counternode-get\index.js
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -371,5 +377,6 @@ Global
 		{CDF316B9-AB36-42CB-859B-FCDB56E083B0} = {FF9C0818-30D3-437A-A62D-7A61CA44F459}
 		{A751A732-ACCE-4B1F-8244-8DD161619483} = {CDF316B9-AB36-42CB-859B-FCDB56E083B0}
 		{F5F67057-07CC-4250-99FC-A3EF9BB85A15} = {C1695CB2-C4CF-4E8A-A656-37C766B60623}
+		{7FBA890C-8C21-460C-8ABF-BAA0470C001A} = {C1695CB2-C4CF-4E8A-A656-37C766B60623}
 	EndGlobalSection
 EndGlobal
