@@ -35,6 +35,7 @@ namespace Microsoft.Azure.WebJobs.Script
                 Collection<HttpMethod> methods = new Collection<HttpMethod>();
                 methods.Add(new HttpMethod(triggerParts[0]));
                 ((HttpTriggerBindingMetadata) triggerBindingMetadata).Methods = methods;
+                ((HttpTriggerBindingMetadata) triggerBindingMetadata).AuthLevel = AuthorizationLevel.Anonymous;
             }
             return triggerBindingMetadata;
         }
@@ -113,6 +114,7 @@ namespace Microsoft.Azure.WebJobs.Script
         public string Name { get; set; }
         public string Trigger { get; set; }
         public string Code { get; set; }
+        public string CodeLocation { get; set; }
         //supressed to allow yaml parser to assign a value to the property
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage",
             "CA2227:CollectionPropertiesShouldBeReadOnly")]

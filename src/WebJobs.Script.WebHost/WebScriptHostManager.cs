@@ -3,6 +3,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -10,6 +12,7 @@ using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Web;
 using Microsoft.AspNet.WebHooks;
 using Microsoft.Azure.WebJobs.Host;
 using Microsoft.Azure.WebJobs.Host.Loggers;
@@ -22,6 +25,7 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
     public class WebScriptHostManager : ScriptHostManager
     {
         private static Lazy<MethodInfo> _getWebHookDataMethod = new Lazy<MethodInfo>(CreateGetWebHookDataMethodInfo);
+        private readonly HttpMethod _defaultMethod = HttpMethod.Get;
         private readonly IMetricsLogger _metricsLogger;
         private readonly SecretManager _secretManager;
 
@@ -32,6 +36,8 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
         }
 
         private IDictionary<string, FunctionDescriptor> HttpFunctions { get; set; }
+
+        private List<KeyValuePair<string, FunctionDescriptor>> RouteTemplates { get; set; }
 
         public async Task<HttpResponseMessage> HandleRequestAsync(FunctionDescriptor function, HttpRequestMessage request, CancellationToken cancellationToken)
         {
@@ -96,15 +102,33 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
 
             arguments.Add(triggerParameter.Name, triggerArgument);
 
-            //add arguments from query string to avoid having WebJobs SDK throw an error for any parameters
-            //it doesn't find values from through bindings.
-            string routeTemplate = RoutingUtility.ExtractRouteFromMetadata(function.Metadata);
-            var otherArguments = RoutingUtility.ExtractQueryArguments(routeTemplate, request);
-            if (otherArguments != null)
+            //add query string parameters that aren't satisfied by any bindings to avoid having WebJobs SDK throw an 
+            //error for any parameters it doesn't find values from through bindings.
+            var bindingNames = function.Metadata.Bindings.Select(b => b.Name).ToImmutableSortedSet();
+
+            //extract all possible parameter values
+            var route = RoutingUtility.ExtractRouteTemplateFromMetadata(function.Metadata);
+            var parameters = RoutingUtility.ExtractRouteParameters(route, request);
+            
+            foreach (var pair in parameters)
             {
-                foreach (var argument in otherArguments)
+                arguments.Add(pair.Key, pair.Value);
+            }
+
+            var queryStringParameters = request.GetQueryNameValuePairs().ToImmutableDictionary();
+            foreach (var parameter in function.Parameters)
+            {
+                // if the parameter is not a binding then assume it is a 
+                if (!bindingNames.Contains(parameter.Name))
                 {
-                    arguments.Add(argument.Key, argument.Value);
+                    string value = null;
+                    queryStringParameters.TryGetValue(parameter.Name, out value);
+                    if (value != null)
+                    {
+                        //convert to the proper type if possible
+                        object properValue = Convert.ChangeType(value, parameter.Type);
+                        arguments.Add(parameter.Name, properValue);
+                    }
                 }
             }
 
@@ -146,12 +170,11 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
                 //attempt to find if any of the keys exactly match this route
                 HttpFunctions.TryGetValue(route, out function);
 
-                //if still haven't found a function look at all of the regex patterns representing 
-                //routes in HttpFunctions.
+                //if still haven't found a function look at all of the templates
                 if (function == null)
                 {
                     function = (from func in HttpFunctions
-                                where Regex.Matches(route, func.Key).Count > 0
+                                where RoutingUtility.MatchesTemplate(func.Key, route)
                                 select func.Value)
                                 .FirstOrDefault();
                 }   
@@ -185,36 +208,16 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
             HttpFunctions = new Dictionary<string, FunctionDescriptor>();
             foreach (var function in Instance.Functions)
             {
+                RoutingUtility.ClearTemplates();
                 HttpTriggerBindingMetadata httpTriggerBinding = (HttpTriggerBindingMetadata)function.Metadata.InputBindings.SingleOrDefault(p => p.Type == BindingType.HttpTrigger);
                 if (httpTriggerBinding != null)
                 {
-                    string route = httpTriggerBinding.Route;
-                    route = RoutingUtility.QueryStringToRegexString(route);
-
-                    //if no route found default to the name of the function
-                    if (string.IsNullOrEmpty(route))
+                    string route = httpTriggerBinding.Route ?? function.Name;
+                    var methods = httpTriggerBinding.Methods ?? new Collection<HttpMethod>(new HttpMethod[] { _defaultMethod });
+                    foreach (var method in methods)
                     {
-                        route = function.Name;
+                        HttpFunctions.Add((method + "/" + route).ToLowerInvariant(), function);
                     }
-
-                    //add a regex prefix to the route based on what performance
-                    var methods = httpTriggerBinding.Methods;
-                    string methodPrefix;
-                    if (methods == null)
-                    {
-                        methodPrefix = @"\w+/";
-                    }
-                    else if (methods.Count == 1)
-                    {
-                        methodPrefix = methods[0].Method + "/";
-                    }
-                    else
-                    {
-                        methodPrefix = "(" + String.Join("|", methods.Select(p => "(" + p.Method + ")").ToArray()) + ")/";
-                    }
-                    route = "^" + methodPrefix + route + "$";
-
-                    HttpFunctions.Add(route.ToLowerInvariant(), function);
                 }
             }
 
