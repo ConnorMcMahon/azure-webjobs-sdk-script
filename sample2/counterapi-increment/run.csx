@@ -3,7 +3,7 @@ using System.Net;
 using Microsoft.WindowsAzure.Storage;
 using Microsoft.WindowsAzure.Storage.Table;
 
-public static async Task<HttpResponseMessage> Run(HttpRequestMessage req, TraceWriter log, CloudTable tableBinding, int add, string countername)
+public static async Task<HttpResponseMessage> Run(HttpRequestMessage req, TraceWriter log, CloudTable tableBinding, string countername, int add)
 {
     HttpResponseMessage res = null;
     try
@@ -20,11 +20,11 @@ public static async Task<HttpResponseMessage> Run(HttpRequestMessage req, TraceW
             Content = new StringContent("Updated the value of the counter by " + add + ".")
         };
     }
-    catch
+    catch (Exception e)
     {
         res = new HttpResponseMessage(HttpStatusCode.BadRequest)
         {
-            Content = new StringContent("Failed to update the counter.")
+            Content = new StringContent(countername + " " + add)
         };
     }
 

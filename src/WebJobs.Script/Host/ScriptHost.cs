@@ -401,8 +401,8 @@ namespace Microsoft.Azure.WebJobs.Script
                 }
                 //add generic function metadata
                 functionMetadata.ScriptType = (ScriptType) Enum.Parse(typeof(ScriptType), configMetadata.Language, true);
-                functionMetadata.ScriptCode = configMetadata.CommonCode != null ? configMetadata.CommonCode + "\n" + function.Code : function.Code;
-                functionMetadata.ScriptFile = apiPath;
+                functionMetadata.ScriptCode = configMetadata.CommonCode != null && function.Code != null ? configMetadata.CommonCode + "\n" + function.Code : function.Code;
+                functionMetadata.ScriptFile = function.CodeLocation != null && function.Code == null ? function.CodeLocation : apiPath;
                 apiFunctions.Add(functionMetadata);
             }
             return apiFunctions;
@@ -558,8 +558,13 @@ namespace Microsoft.Azure.WebJobs.Script
                             var deserializer = new Deserializer(namingConvention: new CamelCaseNamingConvention());
                             var apiConfig = deserializer.Deserialize<ApiConfig>(yaml);
                             List<FunctionMetadata> apimetadata = ParseApiMetadata(apiConfigPath, apiConfig);
+                            string directory = Path.GetDirectoryName(apiConfigPath);
                             foreach (var metadata in apimetadata)
                             {
+                                if (!metadata.ScriptFile.Equals(apiConfigPath))
+                                {
+                                    metadata.ScriptFile = Path.Combine(directory, metadata.ScriptFile);
+                                }
                                 metadatas.Add(metadata);
                             }
                         }

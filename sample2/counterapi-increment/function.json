@@ -5,7 +5,7 @@
       "name": "req",
       "type": "httpTrigger",
       "methods": [ "post" ],
-      "route": "counter/{countername}?add=int",
+      "route": "counter/{countername}/{add:int}",
       "direction": "in"
     },
     {

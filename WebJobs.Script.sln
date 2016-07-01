@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
-VisualStudioVersion = 14.0.25123.0
+VisualStudioVersion = 14.0.25420.1
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebJobs.Script", "src\WebJobs.Script\WebJobs.Script.csproj", "{1DC670CD-F42F-4D8F-97BD-0E1AA8221094}"
 EndProject
@@ -290,12 +290,25 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "counter", "counter", "{F5F67057-07CC-4250-99FC-A3EF9BB85A15}"
 	ProjectSection(SolutionItems) = preProject
 		sample2\counter\api.yaml = sample2\counter\api.yaml
+		sample2\counter\initialize.csx = sample2\counter\initialize.csx
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "counternode-get", "counternode-get", "{7FBA890C-8C21-460C-8ABF-BAA0470C001A}"
 	ProjectSection(SolutionItems) = preProject
 		sample2\counternode-get\function.json = sample2\counternode-get\function.json
 		sample2\counternode-get\index.js = sample2\counternode-get\index.js
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "counternode-increment", "counternode-increment", "{E5A45D6A-EB6E-4905-9D64-FB860CBEF355}"
+	ProjectSection(SolutionItems) = preProject
+		sample2\counternode-increment\function.json = sample2\counternode-increment\function.json
+		sample2\counternode-increment\index.js = sample2\counternode-increment\index.js
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "TypeSampler", "TypeSampler", "{5E000AEA-A2D3-47C4-AD15-F0051A50CFAF}"
+	ProjectSection(SolutionItems) = preProject
+		sample2\TypeSampler\function.json = sample2\TypeSampler\function.json
+		sample2\TypeSampler\run.csx = sample2\TypeSampler\run.csx
 	EndProjectSection
 EndProject
 Global
@@ -378,5 +391,7 @@ Global
 		{A751A732-ACCE-4B1F-8244-8DD161619483} = {CDF316B9-AB36-42CB-859B-FCDB56E083B0}
 		{F5F67057-07CC-4250-99FC-A3EF9BB85A15} = {C1695CB2-C4CF-4E8A-A656-37C766B60623}
 		{7FBA890C-8C21-460C-8ABF-BAA0470C001A} = {C1695CB2-C4CF-4E8A-A656-37C766B60623}
+		{E5A45D6A-EB6E-4905-9D64-FB860CBEF355} = {C1695CB2-C4CF-4E8A-A656-37C766B60623}
+		{5E000AEA-A2D3-47C4-AD15-F0051A50CFAF} = {C1695CB2-C4CF-4E8A-A656-37C766B60623}
 	EndGlobalSection
 EndGlobal

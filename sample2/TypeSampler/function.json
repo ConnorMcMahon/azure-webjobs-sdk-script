@@ -5,21 +5,13 @@
       "name": "req",
       "type": "httpTrigger",
       "methods": [ "get" ],
-      "route": "counter/{countername=mainpage}",
+      "route": "sampler/{strvalue}/{boolvalue:bool}/{longvalue:long}/{doubvalue:double}/{date:datetime}",
       "direction": "in"
     },
     {
       "name": "res",
       "type": "http",
       "direction": "out"
-    },
-    {
-      "type": "table",
-      "name": "counters",
-      "tableName": "apicountertablelocal",
-      "connection": "AzureWebJobsStorage",
-      "direction": "in",
-      "partitionKey": "items"
     }
   ],
   "disabled": false
