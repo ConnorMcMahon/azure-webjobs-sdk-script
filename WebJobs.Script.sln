@@ -311,6 +311,18 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "TypeSampler", "TypeSampler"
 		sample2\TypeSampler\run.csx = sample2\TypeSampler\run.csx
 	EndProjectSection
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "TypeSamplerNode", "TypeSamplerNode", "{4A9A0ACC-FCEF-4F85-8E7A-C09C52F7CF2A}"
+	ProjectSection(SolutionItems) = preProject
+		sample2\TypeSamplerNode\function.json = sample2\TypeSamplerNode\function.json
+		sample2\TypeSamplerNode\index.js = sample2\TypeSamplerNode\index.js
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ConstraintSampler", "ConstraintSampler", "{5111B34F-7A78-4B47-8CA4-A391A190D934}"
+	ProjectSection(SolutionItems) = preProject
+		sample2\ConstraintSampler\function.json = sample2\ConstraintSampler\function.json
+		sample2\ConstraintSampler\run.csx = sample2\ConstraintSampler\run.csx
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -393,5 +405,7 @@ Global
 		{7FBA890C-8C21-460C-8ABF-BAA0470C001A} = {C1695CB2-C4CF-4E8A-A656-37C766B60623}
 		{E5A45D6A-EB6E-4905-9D64-FB860CBEF355} = {C1695CB2-C4CF-4E8A-A656-37C766B60623}
 		{5E000AEA-A2D3-47C4-AD15-F0051A50CFAF} = {C1695CB2-C4CF-4E8A-A656-37C766B60623}
+		{4A9A0ACC-FCEF-4F85-8E7A-C09C52F7CF2A} = {C1695CB2-C4CF-4E8A-A656-37C766B60623}
+		{5111B34F-7A78-4B47-8CA4-A391A190D934} = {C1695CB2-C4CF-4E8A-A656-37C766B60623}
 	EndGlobalSection
 EndGlobal
