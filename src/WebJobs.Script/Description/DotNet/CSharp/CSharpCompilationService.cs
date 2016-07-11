@@ -51,7 +51,8 @@ namespace Microsoft.Azure.WebJobs.Script.Description
         {
             if (functionMetadata.ScriptCode != null)
             {
-                return functionMetadata.ScriptCode;
+                return StateUtility.TranslateCodeForState(functionMetadata.ScriptCode, functionMetadata.GlobalVariables,
+                    functionMetadata.TableDetails);
             }
             string code = null;
 

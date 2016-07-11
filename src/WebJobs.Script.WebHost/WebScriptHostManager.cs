@@ -19,6 +19,8 @@ using Microsoft.Azure.WebJobs.Host.Loggers;
 using Microsoft.Azure.WebJobs.Script.Description;
 using Microsoft.Azure.WebJobs.Script.Diagnostics;
 using Microsoft.Azure.WebJobs.Script.WebHost.Diagnostics;
+using Microsoft.WindowsAzure.Storage;
+using Microsoft.WindowsAzure.Storage.Table;
 
 namespace Microsoft.Azure.WebJobs.Script.WebHost
 {
@@ -132,6 +134,31 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
                 }
             }
 
+            if (function.Metadata.GlobalVariables.Count > 0)
+            {
+                //Create a table object given the table storage information.
+                string connectionString = AmbientConnectionStringProvider.Instance.GetConnectionString(ConnectionStringNames.Storage);
+                CloudStorageAccount storageAccount = CloudStorageAccount.Parse(connectionString);
+                CloudTableClient client = storageAccount.CreateCloudTableClient();
+                CloudTable table = client.GetTableReference(function.Metadata.TableDetails.Table);
+                
+                //query for all of the global variables
+                string partitionKey = function.Metadata.TableDetails.PartitionKey;
+                TableQuery<StateUtility.ScalarEntity<object>> retrieveQuery = new TableQuery<StateUtility.ScalarEntity<object>>().Where(TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, partitionKey));
+                EntityResolver<StateUtility.ScalarEntity<object>> scalarResolver = (pk, rk, ts, props, etag) =>
+                {
+                    StateUtility.ScalarEntity<object> resolvedEntity = new StateUtility.ScalarEntity<object>();
+
+                    resolvedEntity.PartitionKey = pk;
+                    resolvedEntity.RowKey = rk;
+                    resolvedEntity.Timestamp = ts;
+                    resolvedEntity.ETag = etag;
+                    resolvedEntity.Value = Convert.ChangeType(props["Value"].PropertyAsObject, function.Metadata.GlobalVariables[rk]);
+                    return resolvedEntity;
+                };
+                table.ExecuteQuery(retrieveQuery, scalarResolver);
+            }
+
             return arguments;
         }
 
@@ -167,7 +194,7 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
 
                 route = (request.Method.Method + "/" + route).ToLowerInvariant();
 
-                //attempt to find if any of the keys exactly match this route
+                //attempt to find if any of the keys exactly match this route, i.e. no parameter binding in the route
                 HttpFunctions.TryGetValue(route, out function);
 
                 //if still haven't found a function look at all of the templates
@@ -212,6 +239,7 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
                 HttpTriggerBindingMetadata httpTriggerBinding = (HttpTriggerBindingMetadata)function.Metadata.InputBindings.SingleOrDefault(p => p.Type == BindingType.HttpTrigger);
                 if (httpTriggerBinding != null)
                 {
+                    //add a version of the route for each method allowed, to allow for easy checking of default routes
                     string route = httpTriggerBinding.Route ?? function.Name;
                     var methods = httpTriggerBinding.Methods ?? new Collection<HttpMethod>(new HttpMethod[] { _defaultMethod });
                     foreach (var method in methods)

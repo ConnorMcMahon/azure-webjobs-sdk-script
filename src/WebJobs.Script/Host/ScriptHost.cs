@@ -356,6 +356,7 @@ namespace Microsoft.Azure.WebJobs.Script
         private static List<FunctionMetadata> ParseApiMetadata(string apiPath, ApiConfig configMetadata)
         {
             List<FunctionMetadata> apiFunctions = new List<FunctionMetadata>();
+            StateUtility.ProcessInitialState(configMetadata);
             foreach (var function in configMetadata.Functions)
             {
                 FunctionMetadata functionMetadata = new FunctionMetadata
@@ -365,6 +366,9 @@ namespace Microsoft.Azure.WebJobs.Script
 
                 BindingMetadata triggerBindingMetadata = ParseUtility.GetTriggerBindingMetadata(function.Trigger);
 
+                function.BindingDetails = function.BindingDetails == null
+                    ? new Collection<BindingDetail>()
+                    : function.BindingDetails; 
                 if (function.BindingDetails != null)
                 {
                     foreach (var binding in function.BindingDetails)
@@ -401,7 +405,12 @@ namespace Microsoft.Azure.WebJobs.Script
                 }
                 //add generic function metadata
                 functionMetadata.ScriptType = (ScriptType) Enum.Parse(typeof(ScriptType), configMetadata.Language, true);
-                functionMetadata.ScriptCode = configMetadata.CommonCode != null && function.Code != null ? configMetadata.CommonCode + "\n" + function.Code : function.Code;
+                if (function.Code != null)
+                {
+                    functionMetadata.ScriptCode = configMetadata.CommonCode != null ? configMetadata.CommonCode + "\n" + function.Code : function.Code;
+                }
+                functionMetadata.UpdateGlobalVariables(function.GlobalVariableTypes);
+                functionMetadata.TableDetails = configMetadata.TableStorage;
                 functionMetadata.ScriptFile = function.CodeLocation != null && function.Code == null ? function.CodeLocation : apiPath;
                 apiFunctions.Add(functionMetadata);
             }
@@ -576,7 +585,7 @@ namespace Microsoft.Azure.WebJobs.Script
                     }
                 }
                 catch (Exception ex)
-               {
+                {
                     // log any unhandled exceptions and continue
                     AddFunctionError(functionName, ex.Message);
                 }

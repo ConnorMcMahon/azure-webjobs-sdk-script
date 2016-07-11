@@ -1,6 +1,7 @@
 ﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the MIT License. See License.txt in the project root for license information.
 
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -12,6 +13,7 @@ namespace Microsoft.Azure.WebJobs.Script.Description
         public FunctionMetadata()
         {
             Bindings = new Collection<BindingMetadata>();
+            GlobalVariables = new Dictionary<string, Type>();
         }
 
         public string Name { get; set; }
@@ -23,6 +25,18 @@ namespace Microsoft.Azure.WebJobs.Script.Description
         public string ScriptFile { get; set; }
 
         public string ScriptCode { get; set; }
+
+        public Dictionary<string, Type> GlobalVariables { get; }
+
+        public void UpdateGlobalVariables(Dictionary<string, Type> newVariables)
+        {
+            foreach (var variable in newVariables)
+            {
+                GlobalVariables.Add(variable.Key, variable.Value);
+            }
+        }
+
+        public TableDetails TableDetails { get; set; }
 
         public ScriptType ScriptType { get; set; }
 

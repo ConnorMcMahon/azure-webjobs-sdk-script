@@ -2,10 +2,13 @@
 // Licensed under the MIT License. See License.txt in the project root for license information.
 
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Net.Http;
 using Microsoft.Azure.WebJobs.Script.Description;
+using Microsoft.WindowsAzure.Storage;
+using Microsoft.WindowsAzure.Storage.Table;
 using YamlDotNet.Serialization;
 
 namespace Microsoft.Azure.WebJobs.Script
@@ -90,7 +93,9 @@ namespace Microsoft.Azure.WebJobs.Script
 
     //Schema for the Yaml object
     public class ApiConfig
-    {      
+    {     
+        public string ApiName { get; set; }
+        public string State { get; set; }
         public string Language { get; set; }
         public TableDetails TableStorage { get; set; }
         public string CommonCode { get; set; }
@@ -115,7 +120,10 @@ namespace Microsoft.Azure.WebJobs.Script
         public string Trigger { get; set; }
         public string Code { get; set; }
         public string CodeLocation { get; set; }
-        //supressed to allow yaml parser to assign a value to the property
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage",
+            "CA2227:CollectionPropertiesShouldBeReadOnly")]
+        public Dictionary<string, Type> GlobalVariableTypes { get; set; } 
+            //supressed to allow yaml parser to assign a value to the property
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage",
             "CA2227:CollectionPropertiesShouldBeReadOnly")]
         [YamlMember(Alias = "bindings")]
@@ -142,9 +150,12 @@ namespace Microsoft.Azure.WebJobs.Script
                 }
             }
         }
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage",
+            "CA2227:CollectionPropertiesShouldBeReadOnly")]
         public Collection<BindingDetail> BindingDetails
         {
             get { return _bindingDetails; }
+            set { _bindingDetails = value; }
         }
     }
 
