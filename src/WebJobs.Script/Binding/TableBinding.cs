@@ -9,8 +9,10 @@ using System.IO;
 using System.Linq;
 using System.Reflection.Emit;
 using System.Threading.Tasks;
+using Microsoft.Azure.WebJobs.Host;
 using Microsoft.Azure.WebJobs.Host.Bindings.Path;
 using Microsoft.Azure.WebJobs.Script.Description;
+using Microsoft.WindowsAzure.Storage;
 using Microsoft.WindowsAzure.Storage.Table;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -33,14 +35,24 @@ namespace Microsoft.Azure.WebJobs.Script.Binding
             }
 
             TableName = metadata.TableName;
+            VariableName = metadata.VariableName;
+            if (VariableName != null)
+            {
+                PartitionKey = metadata.PartitionKey + "_" + VariableName;
+                RowKey = VariableName;
+            }
+            else
+            {
+                PartitionKey = metadata.PartitionKey;
+                RowKey = metadata.RowKey;
+            }
 
-            PartitionKey = metadata.PartitionKey;
+            
             if (!string.IsNullOrEmpty(PartitionKey))
             {
                 _partitionKeyBindingTemplate = BindingTemplate.FromString(PartitionKey);
             }
 
-            RowKey = metadata.RowKey;
             if (!string.IsNullOrEmpty(RowKey))
             {
                 _rowKeyBindingTemplate = BindingTemplate.FromString(RowKey);
@@ -53,6 +65,7 @@ namespace Microsoft.Azure.WebJobs.Script.Binding
             }
 
             Take = metadata.Take ?? 50;
+            
         }
 
         public string TableName { get; private set; }
@@ -60,6 +73,7 @@ namespace Microsoft.Azure.WebJobs.Script.Binding
         public string RowKey { get; private set; }
         public int Take { get; private set; }
         public string Filter { get; private set; }
+        public string VariableName { get; private set; }
 
         public override Collection<CustomAttributeBuilder> GetCustomAttributes(Type parameterType)
         {
@@ -149,17 +163,40 @@ namespace Microsoft.Azure.WebJobs.Script.Binding
 
             if (Access == FileAccess.Write)
             {
-                attributes.Insert(0, new TableAttribute(TableName));
-                IAsyncCollector<DynamicTableEntity> collector = await context.Binder.BindAsync<IAsyncCollector<DynamicTableEntity>>(attributes.ToArray());
-                ICollection entities = ReadAsCollection(context.Value);
-
-                foreach (JObject entity in entities)
+                if (string.IsNullOrEmpty(VariableName))
                 {
-                    // Here we're mapping from JObject to DynamicTableEntity because the Table binding doesn't support
-                    // a JObject binding. We enable that for the core Table binding in the future, which would allow
-                    // this code to go away.
-                    DynamicTableEntity tableEntity = CreateTableEntityFromJObject(boundPartitionKey, boundRowKey, entity);
-                    await collector.AddAsync(tableEntity);
+                    attributes.Insert(0, new TableAttribute(TableName));
+                    IAsyncCollector<DynamicTableEntity> collector =
+                        await context.Binder.BindAsync<IAsyncCollector<DynamicTableEntity>>(attributes.ToArray());
+                    ICollection entities = ReadAsCollection(context.Value);
+
+                    foreach (JObject entity in entities)
+                    {
+                        // Here we're mapping from JObject to DynamicTableEntity because the Table binding doesn't support
+                        // a JObject binding. We enable that for the core Table binding in the future, which would allow
+                        // this code to go away.
+                        DynamicTableEntity tableEntity = CreateTableEntityFromJObject(boundPartitionKey, boundRowKey,
+                            entity);
+                        await collector.AddAsync(tableEntity);
+                    }
+                }
+                else
+                {
+                    attributes.Insert(0, new TableAttribute(TableName, boundPartitionKey, boundRowKey));
+                    DynamicTableEntity tableEntity =
+                        await context.Binder.BindAsync<DynamicTableEntity>(attributes.ToArray());
+                    tableEntity["Value"] = CreateEntityPropertyFromJProperty(new JProperty("Value", context.Value));
+                }
+            }
+            else if (!string.IsNullOrEmpty(VariableName))
+            {
+                attributes.Insert(0, new TableAttribute(TableName, PartitionKey, RowKey));
+                DynamicTableEntity tableEntity = await context.Binder.BindAsync<DynamicTableEntity>(attributes.ToArray());
+                if (tableEntity != null)
+                {
+                    JObject json = ConvertEntityToJObject(tableEntity);
+                    var result = json["Value"];
+                    context.Value = result.ToObject<object>();
                 }
             }
             else

@@ -1,0 +1,7 @@
+{
+    "name": "persistant-state",
+    "version": "0.0.1",
+    "dependencies": {
+        "azure-storage": "1.1.0"
+    }
+}

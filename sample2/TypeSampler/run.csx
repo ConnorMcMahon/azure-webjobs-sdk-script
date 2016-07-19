@@ -5,7 +5,7 @@ using System.Net.Http;
 using System.Text;
 using System;
 
-public static async Task<HttpResponseMessage> Run(HttpRequestMessage req, TraceWriter log, string strvalue, bool boolvalue, long longvalue, double doubvalue, DateTime date)
+public static async Task<HttpResponseMessage> Run(HttpRequestMessage req, TraceWriter log, string strvalue, string boolvalue, string longvalue, string doubvalue, string date)
 {
     var responseText = new StringBuilder();
     responseText.Append("String value: " + strvalue + "\n");

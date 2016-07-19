@@ -1,17 +1,22 @@
 ﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the MIT License. See License.txt in the project root for license information.
 
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Azure.WebJobs.Script.Description
 {
     public class FunctionMetadata
     {
+        private readonly Collection<string> _globalVariables;
+
         public FunctionMetadata()
         {
             Bindings = new Collection<BindingMetadata>();
+            _globalVariables = new Collection<string>();
         }
 
         public string Name { get; set; }
@@ -22,6 +27,31 @@ namespace Microsoft.Azure.WebJobs.Script.Description
         /// </summary>
         public string ScriptFile { get; set; }
 
+        public Collection<string> GlobalVariables
+        {
+            get { return _globalVariables; }
+        }
+
+        public void RegisterVariables(Collection<string> variables)
+        {
+            if (variables != null)
+            {
+                foreach (string variable in variables)
+                {
+                    GlobalVariables.Add(variable);
+                    var metadata = new TableBindingMetadata();
+                    metadata.Name = variable;
+                    metadata.Direction = BindingDirection.InOut;
+                    metadata.Type = "table";
+                    metadata.TableName = TableDetails.Table;
+                    metadata.PartitionKey = TableDetails.PartitionKey;
+                    metadata.VariableName = variable;
+                    Bindings.Add(metadata);
+                }
+            }
+        }
+
+        public TableDetails TableDetails { get; set; }
 
         /// <summary>
         /// Gets or sets the optional named entry point for a function.

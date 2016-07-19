@@ -5,7 +5,7 @@
       "name": "req",
       "type": "httpTrigger",
       "methods": [ "get" ],
-      "route": "sampler/{strvalue}/{boolvalue:bool}/{longvalue:long}/{doubvalue:double}/{date:datetime}",
+      "route": "sampler/{strvalue}/{boolvalue}/{longvalue}/{doubvalue}/{date}",
       "direction": "in"
     },
     {

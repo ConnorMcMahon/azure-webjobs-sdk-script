@@ -14,5 +14,7 @@ namespace Microsoft.Azure.WebJobs.Script.Description
         public int? Take { get; set; }
 
         public string Filter { get; set; }
+
+        public string VariableName { get; set; }
     }
 }

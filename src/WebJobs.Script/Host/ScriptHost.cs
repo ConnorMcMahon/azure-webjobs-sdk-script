@@ -424,6 +424,7 @@ namespace Microsoft.Azure.WebJobs.Script
         private static List<FunctionMetadata> ParseApiMetadata(string apiPath, ApiConfig configMetadata)
         {
             List<FunctionMetadata> apiFunctions = new List<FunctionMetadata>();
+            GlobalStateUtility.ProcessInitialState(configMetadata);
             foreach (var function in configMetadata.Functions)
             {
                 FunctionMetadata functionMetadata = new FunctionMetadata
@@ -445,6 +446,7 @@ namespace Microsoft.Azure.WebJobs.Script
                                 bindingMetadata.Connection = configMetadata.TableStorage.Connection;
                                 ((TableBindingMetadata)bindingMetadata).PartitionKey = configMetadata.TableStorage.PartitionKey;
                                 ((TableBindingMetadata)bindingMetadata).TableName = configMetadata.TableStorage.Table;
+                                ((TableBindingMetadata)bindingMetadata).VariableName = function.Name;
                                 break;
                             case "httptrigger":
                                 bindingMetadata = triggerBindingMetadata;
@@ -468,7 +470,12 @@ namespace Microsoft.Azure.WebJobs.Script
                 }
                 //add generic function metadata
                 functionMetadata.ScriptType = (ScriptType) Enum.Parse(typeof(ScriptType), configMetadata.Language, true);
-                functionMetadata.ScriptCode = configMetadata.CommonCode != null && function.Code != null ? configMetadata.CommonCode + "\n" + function.Code : function.Code;
+                if (function.Code != null)
+                {
+                    functionMetadata.ScriptCode = configMetadata.CommonCode != null ? configMetadata.CommonCode + "\n" + function.Code : function.Code;
+                }
+                functionMetadata.TableDetails = configMetadata.TableStorage;
+                functionMetadata.RegisterVariables(function.GlobalVariables);
                 functionMetadata.ScriptFile = function.CodeLocation != null && function.Code == null ? function.CodeLocation : apiPath;
                 apiFunctions.Add(functionMetadata);
             }

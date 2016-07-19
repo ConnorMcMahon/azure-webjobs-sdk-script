@@ -38,6 +38,7 @@ namespace Microsoft.Azure.WebJobs.Script.Description
         private Func<object, Task<object>> _clearRequireCache;
         private static Func<object, Task<object>> _globalInitializationFunc;
         private static string _functionTemplate;
+        private static string _httpTemplate;
         private static string _clearRequireCacheScript;
         private static string _globalInitializationScript;
 
@@ -46,7 +47,7 @@ namespace Microsoft.Azure.WebJobs.Script.Description
             _functionTemplate = ReadResourceString("functionTemplate.js");
             _clearRequireCacheScript = ReadResourceString("clearRequireCache.js");
             _globalInitializationScript = ReadResourceString("globalInitialization.js");
-
+            _httpTemplate = ReadResourceString("httpFunctionTemplate.js");
             Initialize();
         }
 
@@ -55,7 +56,29 @@ namespace Microsoft.Azure.WebJobs.Script.Description
         {
             _trigger = trigger;
             string scriptFilePath = functionMetadata.ScriptFile.Replace('\\', '/');
-            _script = string.Format(CultureInfo.InvariantCulture, _functionTemplate, scriptFilePath);
+            //_script = string.Format(CultureInfo.InvariantCulture, _functionTemplate, scriptFilePath);
+            if (functionMetadata.TableDetails != null)
+            {
+                string connectionString = AmbientConnectionStringProvider.Instance.GetConnectionString(ConnectionStringNames.Storage);
+                string[] connectionInfo = connectionString.Split(';');
+                IDictionary<string, string> connectionDictionary = new Dictionary<string, string>();
+                foreach (string connection in connectionInfo)
+                {
+                    string[] connectionPieces = connection.Split(new char[] { '=' }, 2);
+                    if (connectionPieces.Length == 2)
+                    {
+                        connectionDictionary.Add(connectionPieces[0], connectionPieces[1]);
+                    }  
+                }
+                string tableName = functionMetadata.TableDetails.Table;
+                string apiName = functionMetadata.TableDetails.PartitionKey;
+                _script = string.Format(CultureInfo.InvariantCulture, _httpTemplate, scriptFilePath, 
+                    connectionDictionary["AccountName"], connectionDictionary["AccountKey"], tableName, apiName);
+            }
+            else
+            {
+                _script = string.Format(CultureInfo.InvariantCulture, _functionTemplate, scriptFilePath);
+            }      
             _inputBindings = inputBindings;
             _outputBindings = outputBindings;
             _metrics = host.ScriptConfig.HostConfig.GetService<IMetricsLogger>();

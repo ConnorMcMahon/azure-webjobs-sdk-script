@@ -2,6 +2,7 @@
 // Licensed under the MIT License. See License.txt in the project root for license information.
 
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Net.Http;
@@ -101,6 +102,7 @@ namespace Microsoft.Azure.WebJobs.Script
     public class ApiConfig
     {      
         public string Language { get; set; }
+        public string GlobalState { get; set; }
         public TableDetails TableStorage { get; set; }
         public string CommonCode { get; set; }
         //supressed to allow yaml parser to assign a value
@@ -120,10 +122,18 @@ namespace Microsoft.Azure.WebJobs.Script
     {
         private Collection<string> _bindingStrings;
         private Collection<BindingDetail> _bindingDetails;
+        public FunctionDetails()
+        {
+            _bindingDetails = new Collection<BindingDetail>();
+        }
         public string Name { get; set; }
         public string Trigger { get; set; }
         public string Code { get; set; }
         public string CodeLocation { get; set; }
+        //supressed to allow yaml parser to assign a value to the property
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage",
+            "CA2227:CollectionPropertiesShouldBeReadOnly")]
+        public Collection<string> GlobalVariables { get; set; } 
         //supressed to allow yaml parser to assign a value to the property
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage",
             "CA2227:CollectionPropertiesShouldBeReadOnly")]

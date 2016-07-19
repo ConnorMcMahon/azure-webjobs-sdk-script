@@ -352,6 +352,7 @@
     <Compile Include="Binding\ServiceBusScriptBindingProvider.cs" />
     <Compile Include="Binding\TableBinding.cs" />
     <Compile Include="Binding\WebJobsCoreScriptBindingProvider.cs" />
+    <Compile Include="GlobalStateUtility.cs" />
     <Compile Include="ParseUtility.cs" />
     <Compile Include="Description\DotNet\DiagnosticExtensions.cs" />
     <Compile Include="Description\DotNet\CSharp\Analyzers\InvalidFileMetadataReferenceAnalyzer.cs" />
@@ -455,6 +456,8 @@
       <Link>edge\edge.js</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <EmbeddedResource Include="Description\Node\Script\httpFunctionTemplate.js" />
+    <EmbeddedResource Include="Description\Node\Script\state.js" />
     <EmbeddedResource Include="Description\Node\Script\globalInitialization.js" />
   </ItemGroup>
   <ItemGroup>
@@ -478,6 +481,7 @@
       <Link>Properties\CommonAssemblyInfo.cs</Link>
     </Compile>
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="..\..\packages\StyleCop.MSBuild.4.7.50.0\build\StyleCop.MSBuild.Targets" Condition="Exists('..\..\packages\StyleCop.MSBuild.4.7.50.0\build\StyleCop.MSBuild.Targets')" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">

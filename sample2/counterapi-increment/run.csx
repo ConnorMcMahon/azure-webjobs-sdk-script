@@ -24,7 +24,7 @@ public static async Task<HttpResponseMessage> Run(HttpRequestMessage req, TraceW
     {
         res = new HttpResponseMessage(HttpStatusCode.BadRequest)
         {
-            Content = new StringContent(countername + " " + add)
+            Content = new StringContent(e.Message)
         };
     }
 
