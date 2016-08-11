@@ -199,15 +199,36 @@ namespace Microsoft.Azure.WebJobs.Script.Description
                 TraceWriter.Info(string.Format("Function started (Id={0})", invocationId));
 
                 parameters = ProcessInputParameters(parameters);
-
-                object functionResult = function.Invoke(null, parameters);
-
-                // after the function executes, we have to copy values back into the original
-                // array to ensure object references are maintained (since we took a copy above)
-                for (int i = 0; i < parameters.Length; i++)
+                bool hasSucceeded;
+                object functionResult;
+                do
                 {
-                    originalParameters[i] = parameters[i];
-                }
+                    //assume it has succeeded until it flushes
+                    hasSucceeded = true;
+                    functionResult = function.Invoke(null, parameters);
+
+                    // after the function executes, we have to copy values back into the original
+                    // array to ensure object references are maintained (since we took a copy above)
+                    for (int i = 0; i < parameters.Length; i++)
+                    {
+                        Type paramType = originalParameters[i].GetType();
+                        Type baseType = paramType.IsGenericType
+                            ? paramType.GetGenericTypeDefinition()
+                            : paramType;
+                        if (typeof (TableDictionary<,>) == baseType)
+                        {
+                            //handles concurrency
+                            //todo: refactor to make sure all parameters are flushed at once
+                            dynamic parameter = originalParameters[i];
+                            if (!parameter.Flush("optimistic"))
+                            {
+                                parameter.ClearCache();
+                                hasSucceeded = false;
+                            }
+                        }
+                        originalParameters[i] = parameters[i];
+                    }
+                } while (!hasSucceeded);
 
                 if (functionResult is Task)
                 {

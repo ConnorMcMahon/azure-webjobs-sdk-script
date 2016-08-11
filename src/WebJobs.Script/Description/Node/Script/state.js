@@ -25,19 +25,30 @@ function State(accountName, accountKey, tableName, apiName, variableName, storag
     });
 }
 
+function escapeKey(key) {
+    return key.replace("|", "||").replace("_", "|_");
+}
 
 State.prototype = {
     generateRowKey: function(variableName){
         if(this.variableName === ""){
             return variableName;
         }
-        return this.variableName + "_" + variableName;
+        return this.variableName + "_" + escapeKey(variableName);
     },
+    generatePartionKey: function(){
+        var partitionKey = escapeKey(this.apiName);
+        if(this.variableName === ""){
+            partitionKey = escapeKey(partitionKey) + "_labels";
+        }
+        return partitionKey;
+    },   
     getValue: function(variableName, callback){
+        var partitionKey = this.generatePartionKey();
         if(!this.variables[variableName]) {
             var newVariableName = this.generateRowKey(variableName);
             //todo: use apiname as partition key
-            this.storageClient.retrieveEntity(this.tableName, this.apiName, newVariableName, function(err, entity){
+            this.storageClient.retrieveEntity(this.tableName, partitionKey, newVariableName, function(err, entity){
                 if(!err){
                     if(entity && entity.Value){
                         callback(entity.Value["_"], null);
@@ -75,12 +86,12 @@ State.prototype = {
     },
     flush: function() {
         var self = this;
+        var partitionKey = this.generatePartionKey();
         for (variable in self.changedVariables){
             var variableName = self.generateRowKey(variable);
-            console.log(variableName);
             var variableEntity =  {
-                PartitionKey: entityGen.String(self.apiName),
-                RowKey: entityGen.String(variableName),
+                PartitionKey: entityGen.String(escapeKey(partitionKey)),
+                RowKey: entityGen.String(escapeKey(variableName)),
                 Value: self.changedVariables[variable]
             }
             self.storageClient.insertOrReplaceEntity(self.tableName, variableEntity, function() {});

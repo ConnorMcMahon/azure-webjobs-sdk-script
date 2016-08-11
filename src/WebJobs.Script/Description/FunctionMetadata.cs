@@ -39,14 +39,14 @@ namespace Microsoft.Azure.WebJobs.Script.Description
                 foreach (string variable in variables)
                 {
                     GlobalVariables.Add(variable);
-                    var metadata = new TableBindingMetadata();
-                    metadata.Name = variable;
-                    metadata.Direction = BindingDirection.InOut;
-                    metadata.Type = "table";
-                    metadata.TableName = TableDetails.Table;
-                    metadata.PartitionKey = TableDetails.PartitionKey;
-                    metadata.VariableName = variable;
-                    Bindings.Add(metadata);
+                    //var metadata = new TableBindingMetadata();
+                    //metadata.Name = variable;
+                    //metadata.Direction = BindingDirection.InOut;
+                    //metadata.Type = "table";
+                    //metadata.TableName = TableDetails.Table;
+                    //metadata.PartitionKey = TableDetails.PartitionKey;
+                    //metadata.VariableName = variable;
+                    //Bindings.Add(metadata);
                 }
             }
         }

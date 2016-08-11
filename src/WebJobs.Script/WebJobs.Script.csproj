@@ -429,6 +429,7 @@
     <Compile Include="Host\ScriptHostFactory.cs" />
     <Compile Include="RoutingUtility.cs" />
     <Compile Include="ScriptConstants.cs" />
+    <Compile Include="TableDictionary.cs" />
     <Compile Include="Utility.cs" />
   </ItemGroup>
   <ItemGroup>

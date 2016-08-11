@@ -131,11 +131,11 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
                 }
             }
 
-            //IDictionary<string, object> globalVariables = GlobalStateUtility.RetrieveState(function.Metadata.TableDetails, function.Metadata.GlobalVariables);
-            //foreach (var variable in globalVariables)
-            //{
-            //    arguments.Add(variable.Key, variable.Value);
-            //}
+            IDictionary<string, object> globalVariables = GlobalStateUtility.RetrieveState(function.Metadata.TableDetails, function.Metadata.GlobalVariables);
+            foreach (var variable in globalVariables)
+            {
+                arguments.Add(variable.Key, variable.Value);
+            }
 
             return arguments;
         }

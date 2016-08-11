@@ -312,8 +312,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "counter", "counter", "{F5F6
 		sample2\counter\api.yaml = sample2\counter\api.yaml
 		sample2\counter\getCounters.js = sample2\counter\getCounters.js
 		sample2\counter\incrementCounters.js = sample2\counter\incrementCounters.js
-		sample2\counter\initialize.csx = sample2\counter\initialize.csx
 		sample2\counter\initializeCounters.js = sample2\counter\initializeCounters.js
+		sample2\counter\samplestate.csx = sample2\counter\samplestate.csx
 		sample2\counter\samplestate.js = sample2\counter\samplestate.js
 	EndProjectSection
 EndProject

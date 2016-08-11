@@ -4,22 +4,129 @@ tableStorage:
     partitionKey: counter
     connection: AzureWebJobsStorage
 
-language: Javascript
-
-globalState: |
-    public static int i = 5;
-    public static int j = 7;
+language: CSharp
     
-functions:
-    - name: useValues
-      trigger: GET@samplestate
-      codeLocation: samplestate.js
-    - name: initializeCounters
-      trigger: PUT@counterstate/{counterName}
-      codeLocation: initializeCounters.js
-    - name: getCounters
-      trigger: GET@counterstate/{counterName}
-      codeLocation: getCounters.js
-    - name: incrementCounters
-      trigger: POST@counterstate/{counterName}/{addValue:int}
-      codeLocation: incrementCounters.js
+globalState: |
+    public static Dictionary<string, int> counters = new Dictionary<string, int>() 
+    {
+        { "mainpage", 0 },
+        { "faq", 0 }
+    };
+    
+commonCode: |
+        using System.Net;
+        using System.Net.Http;
+        using System.Collections;                
+functions:     
+    - name: getCounter
+      trigger: GET@counters/{counterName}
+      globalVariables:
+        - counters
+      code: |
+        public static async Task<HttpResponseMessage> Run(HttpRequestMessage req, TraceWriter log, IDictionary<string, int> counters, string counterName)
+        {
+            if(counters.ContainsKey(counterName)) {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("The counter's value is " + counters[counterName])
+                };
+            } else {
+                return new HttpResponseMessage(HttpStatusCode.BadRequest)
+                {
+                    Content = new StringContent("The counter " + counterName + " does not exist.")
+                };
+            }
+        }
+    - name: incrementCounter
+      trigger: POST@counters/{counterName}/addValue/{addValue:int}
+      globalVariables:
+        - counters
+      code: |
+        public static async Task<HttpResponseMessage> Run(HttpRequestMessage req, TraceWriter log, IDictionary<string, int> counters, string counterName, int addValue)
+        {
+            if(counters.ContainsKey(counterName)){
+                counters[counterName] += addValue;
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("Updated the value of the counter by " + addValue + ".")
+                };
+            } else {
+                return new HttpResponseMessage(HttpStatusCode.BadRequest)
+                {
+                    Content = new StringContent("The counter " + counterName + " does not exist.")
+                };
+            }
+        }
+    - name: registerCounter
+      trigger: PUT@counters/{counterName}
+      globalVariables:
+        - counters
+      code: |
+        public static async Task<HttpResponseMessage> Run(HttpRequestMessage req, TraceWriter log, IDictionary<string, int> counters, string counterName)
+        {
+            if(counters.ContainsKey(counterName)){
+                return new HttpResponseMessage(HttpStatusCode.BadRequest){
+                    Content = new StringContent("The counter " + counterName + " has already been initialized.")
+                };
+            } else {
+                counters[counterName] = 0;
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("The counter " + counterName + " was initialized to 0.")
+                };
+            }
+        }
+    - name: deleteCounter
+      trigger: DELETE@counters/{counterName}
+      globalVariables:
+        - counters
+      code: |
+        public static async Task<HttpResponseMessage> Run(HttpRequestMessage req, TraceWriter log, IDictionary<string, int> counters, string counterName)
+        {
+            if(counters.Remove(counterName)){
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("The counter " + counterName + " was successfully deleted.")
+                };
+            } else {
+                return new HttpResponseMessage(HttpStatusCode.BadRequest){
+                    Content = new StringContent("The counter " + counterName + " does not exist.")
+                };
+            }
+        }
+    - name: renameCounter
+      trigger: PUT@counters/oldName/{oldName}/newName/{newName}
+      globalVariables:
+        - counters
+      code: |
+        public static async Task<HttpResponseMessage> Run(HttpRequestMessage req, TraceWriter log, IDictionary<string, int> counters, string oldName, string newName)
+        {
+            if(!counters.ContainsKey(oldName)) {
+                return new HttpResponseMessage(HttpStatusCode.BadRequest){
+                    Content = new StringContent("The counter you are trying to rename (" + oldName + ") does not exist.")
+                };
+            } else if(counters.ContainsKey(newName)){
+                return new HttpResponseMessage(HttpStatusCode.BadRequest){
+                    Content = new StringContent("A counter with the name " + newName + " already exists.")
+                };
+            }
+            int value = counters[oldName];
+            counters.Remove(oldName);
+            counters[newName] = value;
+            return new HttpResponseMessage(HttpStatusCode.OK) {
+                Content = new StringContent("The counter " + oldName + " was successfully renamed to " + newName)
+            };
+        }
+    - name: resetCounters
+      trigger: TIMER@0 0 * * * *
+      globalVariables:
+        - counters
+      code: |
+        public static async void Run(TimerInfo timerInfo, TraceWriter log, IDictionary<string, int> counters)
+        {
+            foreach(var counterPair in counters){
+                counters[counterPair.Key] = 0;
+                log.Info(counterPair.Key + " was set to 0");
+            }
+        }
+    
