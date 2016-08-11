@@ -32,9 +32,12 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
         {
             _metricsLogger = new WebHostMetricsLogger();
             _secretManager = secretManager;
+            CustomRouteFunctions = new List<KeyValuePair<string, FunctionDescriptor>>();
         }
 
         private IDictionary<string, FunctionDescriptor> HttpFunctions { get; set; }
+
+        private List<KeyValuePair<string, FunctionDescriptor>> CustomRouteFunctions { get; set; } 
 
         public async Task<HttpResponseMessage> HandleRequestAsync(FunctionDescriptor function, HttpRequestMessage request, CancellationToken cancellationToken)
         {
@@ -148,7 +151,7 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
             var uri = request.RequestUri;
             FunctionDescriptor function = null;
 
-            if (HttpFunctions == null || HttpFunctions.Count == 0)
+            if (HttpFunctions == null || CustomRouteFunctions == null || (HttpFunctions.Count == 0 && CustomRouteFunctions.Count == 0))
             {
                 return null;
             }
@@ -170,7 +173,7 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
                 //if still haven't found a function look at all of the templates
                 if (function == null)
                 {
-                    function = (from func in HttpFunctions
+                    function = (from func in CustomRouteFunctions
                                 where RoutingUtility.MatchesTemplate(func.Key, route)
                                 select func.Value)
                                 .FirstOrDefault();
@@ -217,11 +220,21 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
                 HttpTriggerBindingMetadata httpTriggerBinding = (HttpTriggerBindingMetadata)function.Metadata.InputBindings.SingleOrDefault(p => p.Type.Equals("httptrigger", StringComparison.OrdinalIgnoreCase));
                 if (httpTriggerBinding != null)
                 {
-                    string route = httpTriggerBinding.Route ?? function.Name;
                     var methods = httpTriggerBinding.Methods ?? new Collection<HttpMethod>(new HttpMethod[] { _defaultMethod });
-                    foreach (var method in methods)
+                    if (httpTriggerBinding.Route == null)
                     {
-                        HttpFunctions.Add((method + "/" + route).ToLowerInvariant(), function);
+                        foreach (var method in methods)
+                        {
+                            HttpFunctions.Add((method + "/" + function.Name).ToLowerInvariant(), function);
+                        }
+                    }
+                    else
+                    {
+                        httpTriggerBinding.Route = RoutingUtility.EscapeRegexRoutes(httpTriggerBinding.Route);
+                        foreach (var method in methods)
+                        {
+                            CustomRouteFunctions.Add(new KeyValuePair<string, FunctionDescriptor>((method + "/" + httpTriggerBinding.Route).ToLowerInvariant(), function));
+                        }
                     }
                 }
             }
