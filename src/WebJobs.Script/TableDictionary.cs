@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.Data.Edm.Library.Expressions;
 using Microsoft.WindowsAzure.Storage;
 using Microsoft.WindowsAzure.Storage.Table;
 
@@ -290,19 +291,24 @@ namespace Microsoft.Azure.WebJobs.Script
                         TableQuery.CombineFilters(
                             TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.GreaterThan, _currentNestingPosition + "_"),
                             TableOperators.And,
-                            TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.LessThan, _currentNestingPosition + "'" )
+                            TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.LessThan, _currentNestingPosition + "`" )
                         ),
                         TableOperators.And,
                         TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, _partitionKey)
                     )
                 );
-                foreach (DynamicTableEntity entity in _table.ExecuteQuery(query))
+                bool result1 = (_currentNestingPosition + "_").CompareTo("counters_mainpage") < 0;
+                bool result2 = (_currentNestingPosition + "`").CompareTo("counters_mainpage") > 0;
+                Console.Write(result1);
+                Console.Write(result2);
+                var entities = _table.ExecuteQuery(query);
+                foreach (DynamicTableEntity entity in entities)
                 {
                     string key = GlobalStateUtility.ExtractLastVariable(entity.RowKey);
                     TKey keyValue = (TKey) Convert.ChangeType(key, typeof (TKey));
                     _storedValues[keyValue] = entity;
 
-                        if (entity.Properties["type"] == null)
+                        if (entity.Properties["type"] != null)
                         {
                             _currentValues[keyValue] = (TValue)ChangeType(entity);
                         }

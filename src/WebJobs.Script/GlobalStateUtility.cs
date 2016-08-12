@@ -18,7 +18,7 @@ namespace Microsoft.Azure.WebJobs.Script
 
     public static class GlobalStateUtility
     {
-        private static Regex variableNameSplitRegex = new Regex("(?<!|)_");
+        //private static Regex variableNameSplitRegex = new Regex("(?<!|)_");
         private static string GetInitializationCode(string initializations)
         {
             //All the neccesary wrapper code to get the initial values of the variables. 
@@ -155,7 +155,7 @@ namespace Microsoft.Azure.WebJobs.Script
 
         public static string ExtractLastVariable(string nestedName)
         {
-            string[] nameParts = variableNameSplitRegex.Split(nestedName);
+            string[] nameParts = nestedName.Split('_');
             if (nameParts.Length == 1)
             {
                 //todo: error check
