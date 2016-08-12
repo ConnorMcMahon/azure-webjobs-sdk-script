@@ -96,6 +96,22 @@ namespace Microsoft.Azure.WebJobs.Script.Description
             }
         }
 
+        public override void OnError(Exception ex)
+        {
+            string error = Utility.FlattenException(ex, s =>
+            {
+                string baseAssemblyName = FunctionAssemblyLoader.GetAssemblyNameFromMetadata(Metadata, string.Empty);
+                if (s != null && s.StartsWith(baseAssemblyName))
+                {
+                    return Metadata.Name;
+                }
+
+                return s;
+            });
+
+            TraceError(error);
+        }
+
         private void ReloadScript()
         {
             // Reset cached function
@@ -394,17 +410,6 @@ namespace Microsoft.Azure.WebJobs.Script.Description
             return ImmutableArray<Diagnostic>.Empty;
         }
 
-        private static bool IsCorrectType(string systemType, string queryType)
-        {
-            if ((systemType.Equals("Int32") && queryType.Equals("int"))
-                || (systemType.Equals("Boolean") && queryType.Equals("bool"))
-                || (systemType.Equals("String") && queryType.Equals("string")))
-            {
-                return true;
-            }
-            return false;
-        }
-
         private ImmutableArray<Diagnostic> ValidateFunctionBindingArguments(FunctionSignature functionSignature,
             ImmutableArray<Diagnostic>.Builder builder = null, bool throwIfFailed = false)
         {
@@ -430,7 +435,9 @@ namespace Microsoft.Azure.WebJobs.Script.Description
 
                 if (!functionSignature.Parameters.Any(p => string.Compare(p.Name, binding.Metadata.Name, StringComparison.Ordinal) == 0))
                 {
-                    string message = string.Format(CultureInfo.InvariantCulture, "Missing binding argument named '{0}'.", binding.Metadata.Name);
+                    string message = string.Format(CultureInfo.InvariantCulture, 
+                        "Missing binding argument named '{0}'. Mismatched binding argument names may lead to function indexing errors.", binding.Metadata.Name);
+
                     var descriptor = new DiagnosticDescriptor(DotNetConstants.MissingBindingArgumentCompilationCode,
                         "Missing binding argument", message, "AzureFunctions", DiagnosticSeverity.Warning, true);
 

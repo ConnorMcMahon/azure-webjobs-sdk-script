@@ -39,6 +39,10 @@ namespace Microsoft.Azure.WebJobs.Script.Tests
                 FileLoggingEnabled = true
             };
 
+            // Clear the timer logs first, since one of the tests will
+            // be checking them
+            TestHelpers.ClearFunctionLogs("TimerTrigger");
+
             Host = ScriptHost.Create(config);
             Host.Start();
         }
@@ -79,6 +83,9 @@ namespace Microsoft.Azure.WebJobs.Script.Tests
 
             TestInputContainer = BlobClient.GetContainerReference(string.Format("test-input-{0}", _testId));
             TestInputContainer.CreateIfNotExists();
+            // Processing a large number of blobs on startup can take a while,
+            // so let's start with an empty container.
+            TestHelpers.ClearContainer(TestInputContainer);
 
             TestOutputContainer = BlobClient.GetContainerReference(string.Format("test-output-{0}", _testId));
             TestOutputContainer.CreateIfNotExists();

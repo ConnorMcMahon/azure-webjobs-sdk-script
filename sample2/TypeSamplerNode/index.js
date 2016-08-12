@@ -1,6 +1,7 @@
 ﻿module.exports = function (context, req) {
     try {
-        var parameters = req.parameters;
+        //build the response string using the parameters extracted from the routes
+        var parameters = req.params;
         var responseString = "";
         responseString += "String value: " + parameters.strvalue + "\n";
         responseString += "Bool value: " + parameters.boolvalue + "\n";
@@ -11,7 +12,6 @@
             status: 200,
             body: responseString
         }
-
     } catch (e) {
         context.res = {
             status: 400,

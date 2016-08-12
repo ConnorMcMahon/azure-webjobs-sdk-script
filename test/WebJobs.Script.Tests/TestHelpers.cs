@@ -66,9 +66,12 @@ namespace Microsoft.Azure.WebJobs.Script.Tests
         public static void ClearFunctionLogs(string functionName)
         {
             DirectoryInfo directory = GetFunctionLogFileDirectory(functionName);
-            foreach (var file in directory.GetFiles())
+            if (directory.Exists)
             {
-                file.Delete();
+                foreach (var file in directory.GetFiles())
+                {
+                    file.Delete();
+                }
             }
         }
 
@@ -90,6 +93,20 @@ namespace Microsoft.Azure.WebJobs.Script.Tests
             }
 
             return null;
+        }
+
+        // Deleting and recreating a container can result in a 409 as the container name is not
+        // immediately available. Instead, use this helper to clear a container.
+        public static void ClearContainer(CloudBlobContainer container)
+        {
+            foreach (IListBlobItem blobItem in container.ListBlobs())
+            {
+                CloudBlockBlob blockBlob = blobItem as CloudBlockBlob;
+                if (blockBlob != null)
+                {
+                    container.GetBlobReference(blockBlob.Name).DeleteIfExists();
+                }
+            }
         }
 
         public static DirectoryInfo GetFunctionLogFileDirectory(string functionName)

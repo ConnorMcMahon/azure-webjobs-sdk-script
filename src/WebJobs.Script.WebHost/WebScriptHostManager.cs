@@ -5,6 +5,8 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -12,6 +14,7 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
+using System.Web.Hosting;
 using Microsoft.AspNet.WebHooks;
 using Microsoft.Azure.WebJobs.Host;
 using Microsoft.Azure.WebJobs.Host.Loggers;
@@ -25,18 +28,69 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
     {
         private static Lazy<MethodInfo> _getWebHookDataMethod = new Lazy<MethodInfo>(CreateGetWebHookDataMethodInfo);
         private readonly HttpMethod _defaultMethod = HttpMethod.Post;
+        private static bool? _standbyMode;
         private readonly IMetricsLogger _metricsLogger;
         private readonly SecretManager _secretManager;
+        private readonly WebHostSettings _webHostSettings;
+        private readonly object _syncLock = new object();
+        private bool _warmupComplete = false;
+        private bool _hostStarted = false;
 
-        public WebScriptHostManager(ScriptHostConfiguration config, SecretManager secretManager) : base(config)
+        public WebScriptHostManager(ScriptHostConfiguration config, SecretManager secretManager, WebHostSettings webHostSettings) : base(config)
         {
             _metricsLogger = new WebHostMetricsLogger();
             _secretManager = secretManager;
+            _webHostSettings = webHostSettings;
+            CustomRouteFunctions = new List<KeyValuePair<string, FunctionDescriptor>>();
+        }
+
+        public static bool IsAzureEnvironment
+        {
+            get
+            {
+                return !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WEBSITE_INSTANCE_ID"));
+            }
         }
 
         private IDictionary<string, FunctionDescriptor> HttpFunctions { get; set; }
 
-        private List<KeyValuePair<string, FunctionDescriptor>> RouteTemplates { get; set; }
+        public bool Initialized
+        {
+            get
+            {
+                if (InStandbyMode)
+                {
+                    return _warmupComplete;
+                }
+                else
+                {
+                    return _hostStarted;
+                }
+            }
+        }
+
+        public static bool InStandbyMode
+        {
+            get
+            {
+                // once set, never reset
+                if (_standbyMode != null)
+                {
+                    return _standbyMode.Value;
+                }
+                if (Environment.GetEnvironmentVariable("WEBSITE_PLACEHOLDER_MODE") == "1")
+                {
+                    return true;
+                }
+
+                // no longer standby mode
+                _standbyMode = false;
+
+                return _standbyMode.Value;
+            }
+        }
+
+        private List<KeyValuePair<string, FunctionDescriptor>> CustomRouteFunctions { get; set; } 
 
         public async Task<HttpResponseMessage> HandleRequestAsync(FunctionDescriptor function, HttpRequestMessage request, CancellationToken cancellationToken)
         {
@@ -61,6 +115,130 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
             }
 
             return response;
+        }
+
+        public void Initialize()
+        {
+            lock (_syncLock)
+            {
+                if (InStandbyMode)
+                {
+                    if (!_warmupComplete)
+                    {
+                        if (!_webHostSettings.IsSelfHost)
+                        {
+                            HostingEnvironment.QueueBackgroundWorkItem((ct) => WarmUp(_webHostSettings));
+                        }
+                        else
+                        {
+                            Task.Run(() => WarmUp(_webHostSettings));
+                        }
+
+                        _warmupComplete = true;
+                    }
+                }
+                else if (!_hostStarted)
+                {
+                    if (!_webHostSettings.IsSelfHost)
+                    {
+                        HostingEnvironment.QueueBackgroundWorkItem((ct) => RunAndBlock(ct));
+                    }
+                    else
+                    {
+                        Task.Run(() => RunAndBlock());
+                    }
+
+                    _hostStarted = true;
+                }
+            }
+        }
+
+        public static void WarmUp(WebHostSettings settings)
+        {
+            var traceWriter = new FileTraceWriter(Path.Combine(settings.LogPath, "Host"), TraceLevel.Info);
+            ScriptHost host = null;
+            try
+            {
+                traceWriter.Info("Warm up started");
+
+                string rootPath = settings.ScriptPath;
+                if (Directory.Exists(rootPath))
+                {
+                    Directory.Delete(rootPath, true);
+                }
+                Directory.CreateDirectory(rootPath);
+
+                string content = ReadResourceString("Test.host.json");
+                File.WriteAllText(Path.Combine(rootPath, "host.json"), content);
+
+                string functionPath = Path.Combine(rootPath, "Test");
+                Directory.CreateDirectory(functionPath);
+                content = ReadResourceString("Test.function.json");
+                File.WriteAllText(Path.Combine(functionPath, "function.json"), content);
+
+                content = ReadResourceString("Test.run.csx");
+                File.WriteAllText(Path.Combine(functionPath, "run.csx"), content);
+
+                traceWriter.Info("Warm up functions deployed");
+
+                ScriptHostConfiguration config = new ScriptHostConfiguration
+                {
+                    RootScriptPath = rootPath,
+                    FileLoggingEnabled = false,
+                    RootLogPath = settings.LogPath,
+                    TraceWriter = traceWriter,
+                    FileWatchingEnabled = false
+                };
+                config.HostConfig.StorageConnectionString = null;
+                config.HostConfig.DashboardConnectionString = null;
+
+                host = ScriptHost.Create(config);
+                traceWriter.Info(string.Format("Starting Host (Id={0})", host.ScriptConfig.HostConfig.HostId));
+
+                host.Start();
+
+                var arguments = new Dictionary<string, object>
+                {
+                    { "input", "{}" }
+                };
+                host.CallAsync("Test", arguments).Wait();
+                host.Stop();
+
+                traceWriter.Info("Warm up succeeded");
+            }
+            catch (Exception ex)
+            {
+                traceWriter.Error(string.Format("Warm up failed: {0}", ex));
+            }
+            finally
+            {
+                if (host != null)
+                {
+                    // dispose this last, since it will dispose TraceWriter
+                    host.Dispose();
+                }
+
+                traceWriter.Dispose();
+            }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                if (_secretManager != null)
+                {
+                    _secretManager.Dispose();
+                }
+            }
+
+            base.Dispose(disposing);
+        }
+
+        // this is for testing only
+        internal static void ResetStandbyMode()
+        {
+            _standbyMode = null;
         }
 
         private static MethodInfo CreateGetWebHookDataMethodInfo()
@@ -105,27 +283,27 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
             //error for any parameters it doesn't find values from through bindings.
             var bindingNames = function.Metadata.Bindings.Select(b => b.Name).ToImmutableSortedSet();
 
-            //extract all possible parameter values
+            //extract all possible parameter values from the route
             var route = RoutingUtility.ExtractRouteTemplateFromMetadata(function.Metadata);
-            var parameters = RoutingUtility.ExtractRouteParameters(route, request);
-            
+            var parameters = RoutingUtility.ExtractRouteParameters(route, request);          
             foreach (var pair in parameters)
             {
                 arguments.Add(pair.Key, pair.Value);
             }
 
+            //Extract parameters from the query string if match a parameter name that is not a binding
             var queryStringParameters = request.GetQueryNameValuePairs().ToImmutableDictionary();
             foreach (var parameter in function.Parameters)
             {
-                // if the parameter is not a binding then assume it is a 
-                if (!bindingNames.Contains(parameter.Name))
+                // if the parameter is not a binding or already found in the routes then assume it is a parameter to be extracted from the query string
+                if (!bindingNames.Contains(parameter.Name) && !arguments.ContainsKey(parameter.Name))
                 {
+                    //extract the value from the query string parameters and convert it before adding it as an argument.
                     string value = null;
                     queryStringParameters.TryGetValue(parameter.Name, out value);
-                    if (value != null)
+                    object properValue = value != null ? Convert.ChangeType(value, parameter.Type) : null;
+                    if (properValue != null)
                     {
-                        //convert to the proper type if possible
-                        object properValue = Convert.ChangeType(value, parameter.Type);
                         arguments.Add(parameter.Name, properValue);
                     }
                 }
@@ -138,6 +316,16 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
             }
 
             return arguments;
+        }
+
+        private static string ReadResourceString(string fileName)
+        {
+            string resourcePath = string.Format("Microsoft.Azure.WebJobs.Script.WebHost.Resources.{0}", fileName);
+            Assembly assembly = Assembly.GetExecutingAssembly();
+            using (StreamReader reader = new StreamReader(assembly.GetManifestResourceStream(resourcePath)))
+            {
+                return reader.ReadToEnd();
+            }
         }
 
         private static object GetWebHookData(Type dataType, WebHookHandlerContext context)
@@ -156,7 +344,7 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
             var uri = request.RequestUri;
             FunctionDescriptor function = null;
 
-            if (HttpFunctions == null || HttpFunctions.Count == 0)
+            if (HttpFunctions == null || CustomRouteFunctions == null || (HttpFunctions.Count == 0 && CustomRouteFunctions.Count == 0))
             {
                 return null;
             }
@@ -178,7 +366,7 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
                 //if still haven't found a function look at all of the templates
                 if (function == null)
                 {
-                    function = (from func in HttpFunctions
+                    function = (from func in CustomRouteFunctions
                                 where RoutingUtility.MatchesTemplate(func.Key, route)
                                 select func.Value)
                                 .FirstOrDefault();
@@ -219,17 +407,27 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
         internal void InitializeHttpFunctions(Collection<FunctionDescriptor> functions)
         {
             HttpFunctions = new Dictionary<string, FunctionDescriptor>();
-            RoutingUtility.ClearTemplates();
+            RoutingUtility.ClearCache();
             foreach (var function in functions)
             {
                 HttpTriggerBindingMetadata httpTriggerBinding = (HttpTriggerBindingMetadata)function.Metadata.InputBindings.SingleOrDefault(p => p.Type.Equals("httptrigger", StringComparison.OrdinalIgnoreCase));
                 if (httpTriggerBinding != null)
                 {
-                    string route = httpTriggerBinding.Route ?? function.Name;
                     var methods = httpTriggerBinding.Methods ?? new Collection<HttpMethod>(new HttpMethod[] { _defaultMethod });
-                    foreach (var method in methods)
+                    if (httpTriggerBinding.Route == null)
                     {
-                        HttpFunctions.Add((method + "/" + route).ToLowerInvariant(), function);
+                        foreach (var method in methods)
+                        {
+                            HttpFunctions.Add((method + "/" + function.Name).ToLowerInvariant(), function);
+                        }
+                    }
+                    else
+                    {
+                        httpTriggerBinding.Route = RoutingUtility.EscapeRegexRoutes(httpTriggerBinding.Route);
+                        foreach (var method in methods)
+                        {
+                            CustomRouteFunctions.Add(new KeyValuePair<string, FunctionDescriptor>((method + "/" + httpTriggerBinding.Route).ToLowerInvariant(), function));
+                        }
                     }
                 }
             }

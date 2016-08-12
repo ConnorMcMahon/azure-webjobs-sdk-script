@@ -37,9 +37,11 @@ namespace Microsoft.Azure.WebJobs.Script
     {
         private const string HostAssemblyName = "ScriptHost";
         private readonly AutoResetEvent _restartEvent = new AutoResetEvent(false);
+        private string _instanceId;
         private Action<FileSystemEventArgs> _restart;
         private FileSystemWatcher _fileWatcher;
         private int _directoryCountSnapshot;
+        private BlobLeaseManager _blobLeaseManager;
 
         protected ScriptHost(ScriptHostConfiguration scriptConfig)
             : base(scriptConfig.HostConfig)
@@ -49,6 +51,24 @@ namespace Microsoft.Azure.WebJobs.Script
             NodeFunctionInvoker.UnhandledException += OnUnhandledException;
         }
 
+        public event EventHandler IsPrimaryChanged;
+
+        public string InstanceId
+        {
+            get
+            {
+                if (_instanceId == null)
+                {
+                    _instanceId = Environment.GetEnvironmentVariable("WEBSITE_INSTANCE_ID")
+                        ?? Environment.MachineName.GetHashCode().ToString("X").PadLeft(32, '0');
+
+                    _instanceId = _instanceId.Substring(0, 32);
+                }
+
+                return _instanceId;
+            }
+        }
+
         public TraceWriter TraceWriter { get; private set; }
 
         public ScriptHostConfiguration ScriptConfig { get; private set; }
@@ -56,6 +76,14 @@ namespace Microsoft.Azure.WebJobs.Script
         public Collection<FunctionDescriptor> Functions { get; private set; }
 
         public Dictionary<string, Collection<string>> FunctionErrors { get; private set; }
+
+        public bool IsPrimary
+        {
+            get
+            {
+                return _blobLeaseManager?.HasLease ?? false;
+            }
+        }
 
         public AutoResetEvent RestartEvent
         {
@@ -203,18 +231,20 @@ namespace Microsoft.Azure.WebJobs.Script
                 ScriptConfig.HostConfig.AddService<IMetricsLogger>(new MetricsLogger());
             }
 
-            // Bindings may use name resolution, so provide this before reading the bindings. 
-            var nameResolver = new NameResolver();
-
             var storageString = AmbientConnectionStringProvider.Instance.GetConnectionString(ConnectionStringNames.Storage);
             if (storageString == null)
             {
                 // Disable core storage 
                 ScriptConfig.HostConfig.StorageConnectionString = null;
             }
+            else
+            {
+                // Create the lease manager that will keep handle the primary host blob lease acquisition and renewal 
+                // and subscribe for change notifications.
+                _blobLeaseManager = BlobLeaseManager.Create(storageString, TimeSpan.FromSeconds(15), ScriptConfig.HostConfig.HostId, InstanceId, TraceWriter);
+                _blobLeaseManager.HasLeaseChanged += BlobLeaseManagerHasLeaseChanged;
+            }
                       
-            ScriptConfig.HostConfig.NameResolver = nameResolver;
-
             List<FunctionDescriptorProvider> descriptionProviders = new List<FunctionDescriptorProvider>()
             {
                 new ScriptFunctionDescriptorProvider(this, ScriptConfig),
@@ -255,6 +285,11 @@ namespace Microsoft.Azure.WebJobs.Script
             {
                 PurgeOldLogDirectories();
             }
+        }
+
+        private void BlobLeaseManagerHasLeaseChanged(object sender, EventArgs e)
+        {
+            IsPrimaryChanged?.Invoke(this, EventArgs.Empty);
         }
 
         /// <summary>
@@ -377,7 +412,7 @@ namespace Microsoft.Azure.WebJobs.Script
             return bindingProviders;
         }
 
-        private static FunctionMetadata ParseFunctionMetadata(string functionName, INameResolver nameResolver, JObject configMetadata)
+        private static FunctionMetadata ParseFunctionMetadata(string functionName, JObject configMetadata)
         {
             FunctionMetadata functionMetadata = new FunctionMetadata
             {
@@ -395,7 +430,7 @@ namespace Microsoft.Azure.WebJobs.Script
             {
                 foreach (JObject binding in bindingArray)
                 {
-                    BindingMetadata bindingMetadata = BindingMetadata.Create(binding, nameResolver);
+                    BindingMetadata bindingMetadata = BindingMetadata.Create(binding);
                     functionMetadata.Bindings.Add(bindingMetadata);
                     if (bindingMetadata.IsTrigger)
                     {
@@ -405,8 +440,8 @@ namespace Microsoft.Azure.WebJobs.Script
             }
 
             // A function can be disabled at the trigger or function level
-            if (IsDisabled(functionName, triggerDisabledValue) ||
-                IsDisabled(functionName, (JValue)configMetadata["disabled"]))
+            if (IsDisabled(triggerDisabledValue) ||
+                IsDisabled((JValue)configMetadata["disabled"]))
             {
                 functionMetadata.IsDisabled = true;
             }
@@ -419,7 +454,7 @@ namespace Microsoft.Azure.WebJobs.Script
             }
 
             return functionMetadata;
-		}
+        }
 
         private static List<FunctionMetadata> ParseApiMetadata(string apiPath, ApiConfig configMetadata)
         {
@@ -434,40 +469,45 @@ namespace Microsoft.Azure.WebJobs.Script
 
                 BindingMetadata triggerBindingMetadata = ParseUtility.GetTriggerBindingMetadata(function.Trigger);
 
-                if (function.BindingDetails != null)
+                //if there is no valid trigger for this function, skip to the next function in the file
+                if (triggerBindingMetadata == null)
                 {
-                    foreach (var binding in function.BindingDetails)
-                    {
-                        BindingMetadata bindingMetadata;
-                        switch (binding.BindingType.ToLowerInvariant())
-                        {
-                            case "table":
-                                bindingMetadata = new TableBindingMetadata();
-                                bindingMetadata.Connection = configMetadata.TableStorage.Connection;
-                                ((TableBindingMetadata)bindingMetadata).PartitionKey = configMetadata.TableStorage.PartitionKey;
-                                ((TableBindingMetadata)bindingMetadata).TableName = configMetadata.TableStorage.Table;
-                                ((TableBindingMetadata)bindingMetadata).VariableName = function.Name;
-                                break;
-                            case "httptrigger":
-                                bindingMetadata = triggerBindingMetadata;
-                                break;
-                            case "timerTrigger":
-                                bindingMetadata = triggerBindingMetadata;
-                                break;
-                            default:
-                                bindingMetadata = new BindingMetadata();
-                                break;
-                        }
-                        //add universal binding metadata info
-                        bindingMetadata.Direction = (BindingDirection) Enum.Parse(typeof(BindingDirection), binding.Direction, true);
-                        bindingMetadata.Type = binding.BindingType;
-                        bindingMetadata.Name = binding.Name;
-
-                        functionMetadata.Bindings.Add(bindingMetadata);
-                    }
-                    //fill in default bindings (i.e. httptrigger-in and http-out if not present)
-                    ParseUtility.CreateDefaultBindings(functionMetadata, triggerBindingMetadata);
+                    continue;
                 }
+
+                function.BindingDetails = function.BindingDetails ?? new Collection<BindingDetail>();
+
+                foreach (var binding in function.BindingDetails)
+                {
+                    BindingMetadata bindingMetadata;
+                    switch (binding.BindingType.ToLowerInvariant())
+                    {
+                        case "table":
+                            bindingMetadata = new TableBindingMetadata();
+                            bindingMetadata.Connection = configMetadata.TableStorage.Connection;
+                            ((TableBindingMetadata)bindingMetadata).PartitionKey = configMetadata.TableStorage.PartitionKey;
+                            ((TableBindingMetadata)bindingMetadata).TableName = configMetadata.TableStorage.Table;
+                            break;
+                        case "httptrigger":
+                            bindingMetadata = triggerBindingMetadata;
+                            break;
+                        case "timerTrigger":
+                            bindingMetadata = triggerBindingMetadata;
+                            break;
+                        default:
+                            bindingMetadata = new BindingMetadata();
+                            break;
+                    }
+                    //add universal binding metadata info
+                    bindingMetadata.Direction = (BindingDirection) Enum.Parse(typeof(BindingDirection), binding.Direction, true);
+                    bindingMetadata.Type = binding.BindingType;
+                    bindingMetadata.Name = binding.Name;
+
+                    functionMetadata.Bindings.Add(bindingMetadata);
+                }
+                //fill in default bindings (i.e. httptrigger-in and http-out if not present)
+                ParseUtility.CreateDefaultBindings(functionMetadata, triggerBindingMetadata);
+
                 //add generic function metadata
                 functionMetadata.ScriptType = (ScriptType) Enum.Parse(typeof(ScriptType), configMetadata.Language, true);
                 if (function.Code != null)
@@ -514,8 +554,8 @@ namespace Microsoft.Azure.WebJobs.Script
                         // schema validation and give more informative responses 
                         string json = File.ReadAllText(functionConfigPath);
                         JObject functionConfig = JObject.Parse(json);
-                        FunctionMetadata metadata = ParseFunctionMetadata(functionName, config.HostConfig.NameResolver,
-                            functionConfig);
+                        FunctionMetadata metadata = ParseFunctionMetadata(functionName, functionConfig);
+
 
                         if (metadata.IsExcluded)
                         {
@@ -523,14 +563,13 @@ namespace Microsoft.Azure.WebJobs.Script
                             continue;
                         }
 
+                        if (metadata.IsDisabled)
+                        {
+                            TraceWriter.Info(string.Format("Function '{0}' is disabled", functionName));
+                        }
+
                         // determine the primary script
-                        string[] functionFiles =
-                            Directory.EnumerateFiles(scriptDir)
-                                .Where(
-                                    p =>
-                                        Path.GetFileName(p).ToLowerInvariant() !=
-                                        ScriptConstants.FunctionMetadataFileName)
-                                .ToArray();
+                        string[] functionFiles = Directory.EnumerateFiles(scriptDir).Where(p => Path.GetFileName(p).ToLowerInvariant() != ScriptConstants.FunctionMetadataFileName).ToArray();
                         if (functionFiles.Length == 0)
                         {
                             AddFunctionError(functionName, "No function script files present.");
@@ -572,14 +611,9 @@ namespace Microsoft.Azure.WebJobs.Script
                             }
                         }
                     }
-                    else
-                    {
-                        // not a function directory
-                        continue;
-                    }
                 }
                 catch (Exception ex)
-               {
+                {
                     // log any unhandled exceptions and continue
                     AddFunctionError(functionName, ex.Message);
                 }
@@ -882,19 +916,6 @@ namespace Microsoft.Azure.WebJobs.Script
             }
         }
 
-        private static bool IsDisabled(string functionName, JValue disabledValue)
-        {
-            if (disabledValue != null && IsDisabled(disabledValue))
-            {
-                // TODO: this needs to be written to the TraceWriter, not
-                // Console
-                Console.WriteLine(string.Format(CultureInfo.InvariantCulture, "Function '{0}' is disabled", functionName));
-                return true;
-            }
-
-            return false;
-        }
-
         private static bool IsDisabled(JToken isDisabledValue)
         {
             if (isDisabledValue != null)
@@ -939,6 +960,8 @@ namespace Microsoft.Azure.WebJobs.Script
                         invoker.Dispose();
                     }
                 }
+
+                _blobLeaseManager?.Dispose();
 
                 _restartEvent.Dispose();
 

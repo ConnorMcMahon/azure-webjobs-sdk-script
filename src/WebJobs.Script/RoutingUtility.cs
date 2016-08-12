@@ -2,15 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Text;
 using System.Threading.Tasks;
-using System.Web;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Routing.Constraints;
 using Microsoft.AspNetCore.Routing.Template;
-using Microsoft.AspNetCore.Routing.Tree;
 using Microsoft.Azure.WebJobs.Script.Description;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.Extensions.Options;
 
 namespace Microsoft.Azure.WebJobs.Script
@@ -22,7 +20,7 @@ namespace Microsoft.Azure.WebJobs.Script
         private readonly static IOptions<RouteOptions> RouteOptions = new OptionsWrapper<RouteOptions>(new RouteOptions());
         private readonly static IRouter Router = new FakeRouter();
         private readonly static IInlineConstraintResolver ConstraintResolver = new DefaultInlineConstraintResolver(RouteOptions);
-        private readonly static AspNetCore.Http.HttpContext Context = new DefaultHttpContext();
+        private readonly static HttpContext Context = new DefaultHttpContext();
 
         //a dictionary of route constraints to functions that preform the appropriate conversions
         private static readonly IDictionary<Type, Func<string, object>> StringConverter = new Dictionary
@@ -36,15 +34,18 @@ namespace Microsoft.Azure.WebJobs.Script
             {typeof(GuidRouteConstraint), (str => Guid.Parse(str)) },
             {typeof(IntRouteConstraint), (str => Convert.ToInt32(str)) },
             {typeof(LongRouteConstraint), (str => Convert.ToInt64(str)) },
-            {typeof(RangeRouteConstraint), (str => Convert.ToInt64(str)) }
+            {typeof(RangeRouteConstraint), (str => Convert.ToInt64(str)) },
+            {typeof(MaxRouteConstraint), (str => Convert.ToInt64(str)) },
+            {typeof(MinRouteConstraint), (str => Convert.ToInt64(str)) }
         };  
 
-        private static TemplateMatcher GetTemplateMatcher(string queryTemplate)
+        private static TemplateMatcher GetTemplateMatcherAndUpdateCache(string queryTemplate)
         {
             TemplateMatcher templateMatcher = null;
             Templates.TryGetValue(queryTemplate, out templateMatcher);
             if (templateMatcher == null)
             {
+                //if the template Matcher doesn't already exist, create one and add it to the cache
                 var routeTemplate = TemplateParser.Parse(queryTemplate);
                 var defaults = new RouteValueDictionary();
                 foreach (var parameter in routeTemplate.Parameters)
@@ -54,10 +55,10 @@ namespace Microsoft.Azure.WebJobs.Script
                         defaults.Add(parameter.Name, parameter.DefaultValue);
                     }
                 }
-                SetConstraints(queryTemplate, routeTemplate);
                 templateMatcher = new TemplateMatcher(routeTemplate, defaults);
+                //update the cached constraints and the cached templates
+                SetConstraints(queryTemplate, routeTemplate);
                 Templates.Add(queryTemplate, templateMatcher);
-
             }
             return templateMatcher;
         }
@@ -88,22 +89,49 @@ namespace Microsoft.Azure.WebJobs.Script
         }
 
 
-        public static void ClearTemplates()
+        public static void ClearCache()
         {
             Templates.Clear();
             ConstraintsMap.Clear();
+        }
+
+        public static string EscapeRegexRoutes(string route)
+        {
+            string regexIndicator = ":regex(";
+            if (route == null || !route.Contains(regexIndicator))
+            {
+                return route;
+            }
+            int currentIndex = 0;
+            StringBuilder newString = new StringBuilder();
+            int regexIndex = route.IndexOf(regexIndicator, currentIndex, StringComparison.Ordinal);
+            int endSectionIndex = 0;
+            while (regexIndex != -1)
+            {
+                endSectionIndex = regexIndex + regexIndicator.Length;
+                newString.Append(route.Substring(currentIndex, endSectionIndex));
+                currentIndex = endSectionIndex;
+                endSectionIndex = route.IndexOf(")", currentIndex, StringComparison.Ordinal);
+                string regexSectionString = route.Substring(currentIndex, endSectionIndex-currentIndex);
+                newString.Append(regexSectionString.Replace("{", "{{").Replace("}", "}}"));
+                regexIndex = route.IndexOf(regexIndicator, currentIndex, StringComparison.Ordinal);
+            }
+            newString.Append(route.Substring(endSectionIndex));
+            return newString.ToString();
         }
 
         public static bool MatchesTemplate(string queryTemplate, string query)
         {
             try
             {
-                var templateMatcher = GetTemplateMatcher(queryTemplate);
+                var templateMatcher = GetTemplateMatcherAndUpdateCache(queryTemplate);
                 var pathString = new PathString("/" + query);
                 var values = new RouteValueDictionary();
-                bool success = templateMatcher.TryMatch(pathString, values);
-                if (success)
+                //NOTE: the TryMatch function below fills out the values dictionary as it attempts to match
+                bool matchSuccessful = templateMatcher.TryMatch(pathString, values);
+                if (matchSuccessful)
                 {
+                    //ensure that even though it matched, it satisfied all of the constraints as well
                     var constraints = ConstraintsMap[queryTemplate];
                     foreach (var constraintPair in constraints)
                     {
@@ -114,28 +142,23 @@ namespace Microsoft.Azure.WebJobs.Script
                             return false;
                         }
                     }
-                    return true;
                 }
-                else
-                {
-                    return false;
-                }
+                return matchSuccessful;
             }
             catch
             {
+                //todo: at later point, throw exception here and handle using a custom ExceptionHandler in FunctionsController to allow helpful http errors
                 return false;
             }
-
         }
 
         public static IDictionary<string, object> ExtractRouteParameters(string queryTemplate, HttpRequestMessage request)
         {
             var values = new RouteValueDictionary();
-
             if (queryTemplate != null)
             {
-                string requestUri = request.RequestUri.AbsoluteUri;
-                int idx = requestUri.ToLowerInvariant().IndexOf("api", StringComparison.OrdinalIgnoreCase);
+                string requestUri = request.RequestUri.AbsolutePath;
+                int idx = requestUri.ToLowerInvariant().IndexOf("api/", StringComparison.OrdinalIgnoreCase);
                 string uri = null;
                 if (idx > 0)
                 {
@@ -145,22 +168,22 @@ namespace Microsoft.Azure.WebJobs.Script
 
                 if (uri != null)
                 {
-                    var templateMatcher = GetTemplateMatcher(queryTemplate);
+                    var templateMatcher = GetTemplateMatcherAndUpdateCache(queryTemplate);
                     var uriPath = new PathString("/" + uri);
-                    bool success = templateMatcher.TryMatch(uriPath, values);
-                    if (success)
+                    //NOTE: the TryMatch function below fills out the values dictionary as it attempts to match
+                    bool matchSuccessful = templateMatcher.TryMatch(uriPath, values);
+                    if (matchSuccessful)
                     {
                         var constraints = ConstraintsMap[queryTemplate];
                         foreach (var constraintPair in constraints)
                         {
                             string parameter = constraintPair.Key;
-                            IRouteConstraint constraint = constraintPair.Value;
-                            values[parameter] = CoerceArgumentType((string)values[parameter], constraint);
+                            if (values.ContainsKey(parameter))
+                            {
+                                IRouteConstraint constraint = constraintPair.Value;
+                                values[parameter] = CoerceArgumentType((string)values[parameter], constraint);
+                            }
                         }
-                    }
-                    else
-                    {
-                        return null;
                     }
                 }
             }
@@ -170,8 +193,41 @@ namespace Microsoft.Azure.WebJobs.Script
         private static object CoerceArgumentType(string value, IRouteConstraint constraint)
         {
             Func<string, object> conversion;
-            StringConverter.TryGetValue(constraint.GetType(), out conversion);
-            return conversion != null ? conversion.Invoke(value) : value;     
+            var compositeConstraint = constraint as CompositeRouteConstraint;
+            if (compositeConstraint == null)
+            {
+                StringConverter.TryGetValue(constraint.GetType(), out conversion);
+                if (conversion != null)
+                {
+                    try
+                    {
+                        return conversion.Invoke(value);
+                    }
+                    catch
+                    {
+                        return value;
+                    }
+                }
+                return value;
+            }
+            //go through the subConstraints until one properly converts the type
+            foreach (var subConstraint in compositeConstraint.Constraints)
+            {
+                StringConverter.TryGetValue(subConstraint.GetType(), out conversion);
+                if (conversion != null)
+                {
+                    try
+                    {
+                        object newVal = conversion.Invoke(value);
+                        return newVal;
+                    }
+                    catch
+                    {
+                        continue;
+                    }
+                }
+            }
+            return value;
         }
 
         public static string ExtractRouteTemplateFromMetadata(FunctionMetadata metadata)
