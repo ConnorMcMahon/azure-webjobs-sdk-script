@@ -1,15 +1,10 @@
 {
-    "bindings": [
-        {
-            "type": "httpTrigger",
-            "name": "req",
-            "direction": "in",
-            "methods": [ "get" ]
-        },
-        {
-            "type": "http",
-            "name": "$return",
-            "direction": "out"
-        }
-    ]
+  "bindings": [
+    {
+      "type": "xrmSyncTrigger",
+      "name": "serviceProvider",
+      "direction": "in",
+      "functionIdentifier": "TestPlugin.NoOpPlugin"
+    }
+  ]
 }

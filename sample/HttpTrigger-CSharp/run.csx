@@ -1,27 +1,13 @@
-﻿using System.Net;
+﻿#r "bin/Microsoft.Xrm.Sdk.dll"
 
-public static Task<HttpResponseMessage> Run(HttpRequestMessage req, TraceWriter log)
+using System;
+using Microsoft.Xrm.Sdk;
+
+public static void Run(IServiceProvider serviceProvider)
 {
-    var queryParams = req.GetQueryNameValuePairs()
-        .ToDictionary(p => p.Key, p => p.Value, StringComparer.OrdinalIgnoreCase);
+    ITracingService trace = serviceProvider.GetService(typeof(ITracingService)) as ITracingService;
 
-    log.Info(string.Format("C# HTTP trigger function processed a request. {0}", req.RequestUri));
-
-    HttpResponseMessage res = null;
-    if (queryParams.TryGetValue("name", out string name))
-    {
-        res = new HttpResponseMessage(HttpStatusCode.OK)
-        {
-            Content = new StringContent("Hello " + name)
-        };
-    }
-    else
-    {
-        res = new HttpResponseMessage(HttpStatusCode.BadRequest)
-        {
-            Content = new StringContent("Please pass a name on the query string")
-        };
-    }
-
-    return Task.FromResult(res);
+    IOrganizationServiceFactory orgFactory = serviceProvider.GetService(typeof(IOrganizationServiceFactory)) as IOrganizationServiceFactory;
+    IOrganizationService orgService = orgFactory.CreateOrganizationService(null);
+    string msg = $"[{DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff")}]:  ****************** It works!!!";
 }
