@@ -1,0 +1,2 @@
+﻿<%@ ServiceHost Service="Microsoft.Xrm.RemotePlugin.Wcf.IDuplexWcfSandboxWorker, Microsoft.Xrm.RemotePlugin.Wcf" 
+    Factory="Autofac.Integration.Wcf.AutofacServiceHostFactory, Autofac.Integration.Wcf" %>
