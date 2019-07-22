@@ -51,6 +51,7 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Authentication
                 ClaimsIdentity easyAuthIdentity = Context.Request.GetAppServiceIdentity();
                 if (easyAuthIdentity != null)
                 {
+                    easyAuthIdentity.AddClaim(new Claim(SecurityConstants.AuthLevelClaimType, AuthorizationLevel.User.ToString()));
                     claimsIdentities.Add(easyAuthIdentity);
                 }
             }

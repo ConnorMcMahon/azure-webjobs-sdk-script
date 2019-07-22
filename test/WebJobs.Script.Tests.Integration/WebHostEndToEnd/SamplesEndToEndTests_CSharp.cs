@@ -574,6 +574,36 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.EndToEnd
         }
 
         [Fact]
+        public async Task HttpTrigger_UserAuthLevel_Protected()
+        {
+            var vars = new Dictionary<string, string>
+            {
+                { LanguageWorkerConstants.FunctionWorkerRuntimeSettingName, LanguageWorkerConstants.DotNetLanguageWorkerName},
+                { "WEBSITE_AUTH_ENABLED", "TRUE"}
+            };
+            using (var env = new TestScopedEnvironmentVariable(vars))
+            {
+                Environment.SetEnvironmentVariable(LanguageWorkerConstants.FunctionWorkerRuntimeSettingName, LanguageWorkerConstants.DotNetLanguageWorkerName);
+                string uri = $"api/httptrigger-userauth?name=Connor";
+                HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, uri);
+                request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/plain"));
+
+                HttpResponseMessage response = await _fixture.Host.HttpClient.SendAsync(request);
+                Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+
+                request = new HttpRequestMessage(HttpMethod.Get, uri);
+                request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/plain"));
+                MockEasyAuth(request, "facebook", "Connor McMahon", "10241897674253170");
+
+                response = await _fixture.Host.HttpClient.SendAsync(request);
+                Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+                string body = await response.Content.ReadAsStringAsync();
+                Assert.Equal("text/plain", response.Content.Headers.ContentType.MediaType);
+                Assert.Equal("Hello Connor", body);
+            }
+        }
+
+        [Fact]
         public async Task HttpTrigger_CustomRoute_ReturnsExpectedResponse()
         {
             var vars = new Dictionary<string, string>
@@ -841,6 +871,7 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.EndToEnd
                         "HttpTrigger-CustomRoute",
                         "HttpTrigger-POCO",
                         "HttpTrigger-Identities",
+                        "HttpTrigger-UserAuth",
                         "HttpTriggerWithObject",
                         "ManualTrigger"
                     };
