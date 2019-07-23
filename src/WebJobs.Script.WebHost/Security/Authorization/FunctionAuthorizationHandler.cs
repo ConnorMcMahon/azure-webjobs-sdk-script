@@ -19,9 +19,9 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Security.Authorization
 
             if (httpTrigger != null && PrincipalHasAuthLevelClaim(context.User, httpTrigger.AuthLevel))
             {
-                if (httpTrigger.AuthLevel == AuthorizationLevel.User && httpTrigger.AllowedRoles.Length > 0)
+                if (httpTrigger.AuthLevel == AuthorizationLevel.User && httpTrigger.AllowedUserRoles.Length > 0)
                 {
-                    if (!httpTrigger.AllowedRoles
+                    if (!httpTrigger.AllowedUserRoles
                         .Any(role => context.User.IsInRole(role)))
                     {
                         context.Fail();

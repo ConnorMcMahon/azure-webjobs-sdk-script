@@ -287,10 +287,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "HttpTrigger-UserAuth", "Htt
 		sample\CSharp\HttpTrigger-UserAuth\run.csx = sample\CSharp\HttpTrigger-UserAuth\run.csx
 	EndProjectSection
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "HttpTrigger-RoleCheck", "HttpTrigger-RoleCheck", "{91FC9C86-4298-4D0F-9CC0-5FB1818F794A}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "HttpTrigger-RoleCheck", "HttpTrigger-RoleCheck", "{1CB9BADE-75F8-4E0F-826D-1E10C6CCD88D}"
 	ProjectSection(SolutionItems) = preProject
-		sample\CSharp\HttpTrigger-UserAuth\function.json = sample\CSharp\HttpTrigger-UserAuth\function.json
-		sample\CSharp\HttpTrigger-UserAuth\run.csx = sample\CSharp\HttpTrigger-UserAuth\run.csx
+		sample\CSharp\HttpTrigger-RoleCheck\function.json = sample\CSharp\HttpTrigger-RoleCheck\function.json
+		sample\CSharp\HttpTrigger-RoleCheck\run.csx = sample\CSharp\HttpTrigger-RoleCheck\run.csx
 	EndProjectSection
 EndProject
 Global
@@ -394,7 +394,7 @@ Global
 		{B773D1BC-495A-45CD-82CF-393A698FD958} = {9D87C796-7914-4A43-B843-579562393E10}
 		{DCBE49B4-CE2C-4D44-8DD9-2B771343E1C6} = {34506711-9D66-41EF-BBA1-9A9DC1140209}
 		{FFAF1824-6727-43E8-8A9A-8FC1A721E175} = {34506711-9D66-41EF-BBA1-9A9DC1140209}
-		{91FC9C86-4298-4D0F-9CC0-5FB1818F794A} = {34506711-9D66-41EF-BBA1-9A9DC1140209}
+		{1CB9BADE-75F8-4E0F-826D-1E10C6CCD88D} = {34506711-9D66-41EF-BBA1-9A9DC1140209}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {85400884-5FFD-4C27-A571-58CB3C8CAAC5}

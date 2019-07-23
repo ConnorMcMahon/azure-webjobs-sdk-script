@@ -5,7 +5,8 @@
             "name": "req",
             "authLevel": "user",
             "direction": "in",
-            "methods": [ "get" ]
+          "methods": [ "get" ],
+          "allowedUserRoles": ["Admin"]
         },
         {
             "type": "http",
