@@ -9,6 +9,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Reflection;
+using System.Security.Claims;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -604,6 +605,36 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.EndToEnd
         }
 
         [Fact]
+        public async Task HttpTrigger_UserAuthLevel_AllowedRoles_ProtectedWithLegacyClaimType()
+        {
+            var vars = new Dictionary<string, string>
+            {
+                { LanguageWorkerConstants.FunctionWorkerRuntimeSettingName, LanguageWorkerConstants.DotNetLanguageWorkerName},
+                { "WEBSITE_AUTH_ENABLED", "TRUE"}
+            };
+            using (var env = new TestScopedEnvironmentVariable(vars))
+            {
+                Environment.SetEnvironmentVariable(LanguageWorkerConstants.FunctionWorkerRuntimeSettingName, LanguageWorkerConstants.DotNetLanguageWorkerName);
+                string uri = $"api/httptrigger-rolecheck?name=Connor";
+                HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, uri);
+                request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/plain"));
+
+                HttpResponseMessage response = await _fixture.Host.HttpClient.SendAsync(request);
+                Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+
+                request = new HttpRequestMessage(HttpMethod.Get, uri);
+                request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/plain"));
+                MockEasyAuthWithClaim(request, "facebook", "Connor McMahon", "10241897674253170", new Claim(type: "http://schemas.microsoft.com/ws/2008/06/identity/claims/role", value: "Admin"));
+
+                response = await _fixture.Host.HttpClient.SendAsync(request);
+                Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+                string body = await response.Content.ReadAsStringAsync();
+                Assert.Equal("text/plain", response.Content.Headers.ContentType.MediaType);
+                Assert.Equal("Hello Connor", body);
+            }
+        }
+
+        [Fact]
         public async Task HttpTrigger_CustomRoute_ReturnsExpectedResponse()
         {
             var vars = new Dictionary<string, string>
@@ -846,6 +877,35 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.EndToEnd
             request.Headers.Add("x-ms-client-principal", easyAuthHeaderValue);
         }
 
+        internal static void MockEasyAuthWithClaim(HttpRequestMessage request, string provider, string name, string id, Claim claim)
+        {
+            string userIdentityJson = @"{
+  ""auth_typ"": """ + provider + @""",
+  ""claims"": [
+    {
+      ""typ"": ""http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"",
+      ""val"": """ + name + @"""
+    },
+    {
+      ""typ"": ""http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn"",
+      ""val"": """ + name + @"""
+    },
+    {
+      ""typ"": ""http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"",
+      ""val"": """ + id + @"""
+    },
+    {
+      ""typ"": """ + claim.Type + @""",
+      ""val"": """ + claim.Value + @"""
+    }
+  ],
+  ""name_typ"": ""http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"",
+  ""role_typ"": ""http://schemas.microsoft.com/ws/2008/06/identity/claims/role""
+}";
+            string easyAuthHeaderValue = Convert.ToBase64String(Encoding.UTF8.GetBytes(userIdentityJson));
+            request.Headers.Add("x-ms-client-principal", easyAuthHeaderValue);
+        }
+
         public class TestFixture : EndToEndTestFixture
         {
             public TestFixture()
@@ -871,6 +931,7 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.EndToEnd
                         "HttpTrigger-CustomRoute",
                         "HttpTrigger-POCO",
                         "HttpTrigger-Identities",
+                        "HttpTrigger-RoleCheck",
                         "HttpTrigger-UserAuth",
                         "HttpTriggerWithObject",
                         "ManualTrigger"

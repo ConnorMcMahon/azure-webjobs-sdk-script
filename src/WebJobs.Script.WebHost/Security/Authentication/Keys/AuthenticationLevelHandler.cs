@@ -51,6 +51,7 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Authentication
                 ClaimsIdentity easyAuthIdentity = Context.Request.GetAppServiceIdentity();
                 if (easyAuthIdentity != null)
                 {
+                    HydrateRoleClaim(easyAuthIdentity);
                     easyAuthIdentity.AddClaim(new Claim(SecurityConstants.AuthLevelClaimType, AuthorizationLevel.User.ToString()));
                     claimsIdentities.Add(easyAuthIdentity);
                 }
@@ -79,6 +80,18 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Authentication
             else
             {
                 return AuthenticateResult.NoResult();
+            }
+        }
+
+        private static void HydrateRoleClaim(ClaimsIdentity claimsIdentity)
+        {
+            if (!claimsIdentity.HasClaim(claim => string.Equals(claim.Type, claimsIdentity.RoleClaimType, StringComparison.OrdinalIgnoreCase)))
+            {
+                var claim = claimsIdentity.Claims.FirstOrDefault(c => string.Equals(c.Type, "roles", StringComparison.OrdinalIgnoreCase));
+                if (claim != null)
+                {
+                    claimsIdentity.AddClaim(new Claim(claimsIdentity.RoleClaimType, claim.Value));
+                }
             }
         }
 
