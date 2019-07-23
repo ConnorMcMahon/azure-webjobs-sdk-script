@@ -3,10 +3,10 @@
         {
             "type": "httpTrigger",
             "name": "req",
-            "authLevel": "user",
             "direction": "in",
-          "methods": [ "get" ],
-          "allowedUserRoles": [ "Admin" ]
+            "methods": [ "get" ],
+            "authLevel": "custom",
+            "customAuthorizationPolicy": "HttpAuthPolicy"
         },
         {
             "type": "http",

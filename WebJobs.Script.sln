@@ -293,6 +293,18 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "HttpTrigger-RoleCheck", "Ht
 		sample\CSharp\HttpTrigger-RoleCheck\run.csx = sample\CSharp\HttpTrigger-RoleCheck\run.csx
 	EndProjectSection
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "HttpTrigger-AuthPolicy", "HttpTrigger-AuthPolicy", "{62295C20-97AB-4E7F-B2CC-844DBA4C1AB8}"
+	ProjectSection(SolutionItems) = preProject
+		sample\CSharp\HttpTrigger-AuthPolicy\function.json = sample\CSharp\HttpTrigger-AuthPolicy\function.json
+		sample\CSharp\HttpTrigger-AuthPolicy\run.csx = sample\CSharp\HttpTrigger-AuthPolicy\run.csx
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "HttpAuthPolicy", "HttpAuthPolicy", "{63D6BB1A-2B9E-4FEF-B01C-36FAE053390B}"
+	ProjectSection(SolutionItems) = preProject
+		sample\CSharp\HttpAuthPolicy\function.json = sample\CSharp\HttpAuthPolicy\function.json
+		sample\CSharp\HttpAuthPolicy\run.csx = sample\CSharp\HttpAuthPolicy\run.csx
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		test\WebJobs.Script.Tests.Shared\WebJobs.Script.Tests.Shared.projitems*{35c9ccb7-d8b6-4161-bb0d-bcfa7c6dcffb}*SharedItemsImports = 13
@@ -395,6 +407,8 @@ Global
 		{DCBE49B4-CE2C-4D44-8DD9-2B771343E1C6} = {34506711-9D66-41EF-BBA1-9A9DC1140209}
 		{FFAF1824-6727-43E8-8A9A-8FC1A721E175} = {34506711-9D66-41EF-BBA1-9A9DC1140209}
 		{1CB9BADE-75F8-4E0F-826D-1E10C6CCD88D} = {34506711-9D66-41EF-BBA1-9A9DC1140209}
+		{62295C20-97AB-4E7F-B2CC-844DBA4C1AB8} = {34506711-9D66-41EF-BBA1-9A9DC1140209}
+		{63D6BB1A-2B9E-4FEF-B01C-36FAE053390B} = {34506711-9D66-41EF-BBA1-9A9DC1140209}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {85400884-5FFD-4C27-A571-58CB3C8CAAC5}

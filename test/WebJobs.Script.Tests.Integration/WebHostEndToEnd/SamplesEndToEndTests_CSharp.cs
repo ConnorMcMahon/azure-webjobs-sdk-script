@@ -605,6 +605,36 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.EndToEnd
         }
 
         [Fact]
+        public async Task HttpTrigger_AuthPolicy_Protected()
+        {
+            var vars = new Dictionary<string, string>
+            {
+                { LanguageWorkerConstants.FunctionWorkerRuntimeSettingName, LanguageWorkerConstants.DotNetLanguageWorkerName},
+                { "WEBSITE_AUTH_ENABLED", "TRUE"}
+            };
+            using (var env = new TestScopedEnvironmentVariable(vars))
+            {
+                Environment.SetEnvironmentVariable(LanguageWorkerConstants.FunctionWorkerRuntimeSettingName, LanguageWorkerConstants.DotNetLanguageWorkerName);
+                string uri = $"api/httptrigger-authpolicy?name=Connor";
+                HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, uri);
+                request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/plain"));
+                MockEasyAuthWithClaim(request, "facebook", "Connor McMahon", "10241897674253170", new Claim(type: "roles", value: "Developer"));
+                HttpResponseMessage response = await _fixture.Host.HttpClient.SendAsync(request);
+                Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+
+                request = new HttpRequestMessage(HttpMethod.Get, uri);
+                request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/plain"));
+                MockEasyAuthWithClaim(request, "aad", "Connor McMahon", "10241897674253170", new Claim(type: "roles", value: "Developer"));
+
+                response = await _fixture.Host.HttpClient.SendAsync(request);
+                Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+                string body = await response.Content.ReadAsStringAsync();
+                Assert.Equal("text/plain", response.Content.Headers.ContentType.MediaType);
+                Assert.Equal("Hello Connor", body);
+            }
+        }
+
+        [Fact]
         public async Task HttpTrigger_UserAuthLevel_AllowedRoles_ProtectedWithLegacyClaimType()
         {
             var vars = new Dictionary<string, string>
@@ -618,6 +648,8 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.EndToEnd
                 string uri = $"api/httptrigger-rolecheck?name=Connor";
                 HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, uri);
                 request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/plain"));
+                MockEasyAuth(request, "facebook", "Connor McMahon", "10241897674253170");
+
 
                 HttpResponseMessage response = await _fixture.Host.HttpClient.SendAsync(request);
                 Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
@@ -926,7 +958,9 @@ namespace Microsoft.Azure.WebJobs.Script.Tests.EndToEnd
                 {
                     o.Functions = new[]
                     {
+                        "HttpAuthPolicy",
                         "HttpTrigger",
+                        "HttpTrigger-AuthPolicy",
                         "HttpTrigger-Compat",
                         "HttpTrigger-CustomRoute",
                         "HttpTrigger-POCO",

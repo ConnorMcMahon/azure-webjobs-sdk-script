@@ -21,13 +21,15 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Features
     {
         private readonly IScriptJobHost _host;
         private readonly FunctionDescriptor _descriptor;
+        private readonly FunctionDescriptor _authPolicyDescriptor;
         private readonly IEnvironment _environment;
         private readonly ILogger _logger;
 
-        public FunctionExecutionFeature(IScriptJobHost host, FunctionDescriptor descriptor, IEnvironment environment, ILoggerFactory loggerFactory)
+        public FunctionExecutionFeature(IScriptJobHost host, FunctionDescriptor descriptor, FunctionDescriptor authPolicyDescriptor, IEnvironment environment, ILoggerFactory loggerFactory)
         {
             _host = host ?? throw new ArgumentNullException(nameof(host));
             _descriptor = descriptor;
+            _authPolicyDescriptor = authPolicyDescriptor;
             _environment = environment;
             _logger = loggerFactory.CreateLogger(ScriptConstants.LogCategoryHostMetrics);
         }
@@ -63,6 +65,7 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Features
 
             var functionStopwatch = new Stopwatch();
             functionStopwatch.Start();
+
             var arguments = GetFunctionArguments(_descriptor, request);
             await _host.CallAsync(_descriptor.Name, arguments, cancellationToken);
             functionStopwatch.Stop();
@@ -88,6 +91,21 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Features
             arguments.Add(triggerParameter.Name, request);
 
             return arguments;
+        }
+
+        public async Task<bool> AuthorizeAsync(HttpRequest request, CancellationToken cancellationToken)
+        {
+            if (_authPolicyDescriptor != null)
+            {
+                var authArguments = GetFunctionArguments(_authPolicyDescriptor, request);
+                await _host.CallAsync(_authPolicyDescriptor.Name, authArguments, cancellationToken: cancellationToken);
+                if (request.HttpContext.Items[ScriptConstants.AzureFunctionsHttpAuthResponseKey] is bool)
+                {
+                    return (bool)request.HttpContext.Items[ScriptConstants.AzureFunctionsHttpAuthResponseKey];
+                }
+                return false;
+            }
+            return true;
         }
     }
 }

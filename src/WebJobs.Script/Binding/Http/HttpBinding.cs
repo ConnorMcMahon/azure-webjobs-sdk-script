@@ -236,5 +236,16 @@ namespace Microsoft.Azure.WebJobs.Script.Binding
 
             request.HttpContext.Items[ScriptConstants.AzureFunctionsHttpResponseKey] = actionResult;
         }
+
+        internal static void SetAuthResponse(HttpRequest request, bool result)
+        {
+            // use the existing response if already set (IBinder model)
+            if (request.HttpContext.Items.TryGetValue(ScriptConstants.AzureFunctionsHttpAuthResponseKey, out object existing) && existing is IActionResult)
+            {
+                return;
+            }
+
+            request.HttpContext.Items[ScriptConstants.AzureFunctionsHttpAuthResponseKey] = result;
+        }
     }
 }

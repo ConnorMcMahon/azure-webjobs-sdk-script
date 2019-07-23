@@ -1,0 +1,9 @@
+{
+    "bindings": [
+        {
+            "type": "httpAuthorizationTrigger",
+            "name": "principal",
+            "direction": "in"
+        }
+    ]
+}

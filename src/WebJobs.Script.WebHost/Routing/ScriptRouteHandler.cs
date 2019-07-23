@@ -1,6 +1,7 @@
 ﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the MIT License. See License.txt in the project root for license information.
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -39,7 +40,26 @@ namespace Microsoft.Azure.WebJobs.Extensions.Http
             }
 
             var descriptor = _scriptHost.Functions.FirstOrDefault(f => string.Equals(f.Name, functionName));
-            var executionFeature = new FunctionExecutionFeature(_scriptHost, descriptor, _environment, _loggerFactory);
+            HttpTriggerAttribute triggerAttribute = descriptor.GetTriggerAttributeOrNull<HttpTriggerAttribute>();
+            if (triggerAttribute == null)
+            {
+                throw new InvalidOperationException($"Cannot route http requests to a non http triggered function");
+            }
+
+            string authPolicyName = triggerAttribute.CustomAuthorizationPolicy;
+
+            FunctionDescriptor authPolicyDescriptor = null;
+            if (authPolicyName != null)
+            {
+                authPolicyDescriptor = _scriptHost.Functions.FirstOrDefault(f => string.Equals(f.Name, authPolicyName));
+            }
+
+            if (authPolicyDescriptor != null && authPolicyDescriptor.GetTriggerAttributeOrNull<HttpAuthorizationTriggerAttribute>() == null)
+            {
+                throw new InvalidOperationException($"Authorization policies must be HttpAuthorization triggers.");
+            }
+
+            var executionFeature = new FunctionExecutionFeature(_scriptHost, descriptor, authPolicyDescriptor, _environment, _loggerFactory);
             context.Features.Set<IFunctionExecutionFeature>(executionFeature);
 
             await Task.CompletedTask;

@@ -7,6 +7,7 @@ namespace Microsoft.Azure.WebJobs.Script
 {
     public static class ScriptConstants
     {
+        public const string AzureFunctionsHttpAuthResponseKey = "MS_AzureFunctionsHttpAuthResponse";
         public const string AzureFunctionsHttpResponseKey = "MS_AzureFunctionsHttpResponse";
         public const string AzureFunctionsHttpRequestKeyNameKey = "MS_AzureFunctionsKeyId";
         public const string AzureFunctionsHttpRequestAuthorizationDisabledKey = "MS_AzureFunctionsAuthorizationDisabled";

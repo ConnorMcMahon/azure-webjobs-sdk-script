@@ -59,9 +59,18 @@ namespace Microsoft.Azure.WebJobs.Script.Binding
                     methods = methodArray.Select(p => p.Value<string>()).ToArray();
                 }
 
-                var attribute = new HttpTriggerAttribute(authLevel, methods)
+                JArray roleArray = Context.GetMetadataValue<JArray>("allowedUserRoles");
+                string[] userRoles = new string[0];
+                if (roleArray != null)
                 {
-                    Route = Context.GetMetadataValue<string>("route")
+                    userRoles = roleArray.Select(p => p.Value<string>()).ToArray();
+                }
+
+                string customAuthPolicy = Context.GetMetadataValue<string>("customAuthorizationPolicy");
+
+                var attribute = new HttpTriggerAttribute(authLevel, methods, userRoles, customAuthPolicy)
+                {
+                    Route = Context.GetMetadataValue<string>("route"),
                 };
 
                 return new Collection<Attribute> { attribute };

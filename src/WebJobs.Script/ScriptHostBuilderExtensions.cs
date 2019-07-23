@@ -100,6 +100,7 @@ namespace Microsoft.Azure.WebJobs.Script
                 .AddHttp(o =>
                 {
                     o.SetResponse = HttpBinding.SetResponse;
+                    o.SetAuthResponse = HttpBinding.SetAuthResponse;
                 })
                 .AddTimers()
                 .AddManualTrigger();

@@ -144,6 +144,11 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Middleware
                 using (logger.BeginScope(scopeState))
                 {
                     CancellationToken cancellationToken = _applicationLifetime != null ? _applicationLifetime.ApplicationStopping : CancellationToken.None;
+                    bool customAuthPolicyResult = await functionExecution.AuthorizeAsync(context.Request, cancellationToken);
+                    if (!customAuthPolicyResult)
+                    {
+                        return new StatusCodeResult(403);
+                    }
                     await functionExecution.ExecuteAsync(context.Request, cancellationToken);
                 }
             }

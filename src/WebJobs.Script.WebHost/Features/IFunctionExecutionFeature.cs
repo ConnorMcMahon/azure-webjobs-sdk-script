@@ -18,5 +18,7 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Features
         FunctionDescriptor Descriptor { get; }
 
         Task ExecuteAsync(HttpRequest request, CancellationToken cancellationToken);
+
+        Task<bool> AuthorizeAsync(HttpRequest request, CancellationToken cancellationToken);
     }
 }

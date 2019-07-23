@@ -36,6 +36,12 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Security.Authorization
                 return true;
             }
 
+            // If the required auth level is Custom, then authorization will occur later in the pipeline
+            if (requiredLevel == AuthorizationLevel.Custom)
+            {
+                return true;
+            }
+
             var claimLevels = principal
                 .FindAll(SecurityConstants.AuthLevelClaimType)
                 .Select(c => Enum.TryParse(c.Value, out AuthorizationLevel claimLevel) ? claimLevel : AuthorizationLevel.Anonymous)
